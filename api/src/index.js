@@ -26,6 +26,7 @@ app.use('/api/currencies',  require('./routes/currencies'));
 app.use('/api/config',      require('./routes/config'));
 app.use('/api/projects',    require('./routes/projects'));
 app.use('/api/pipeline',    require('./routes/pipeline'));
+app.use('/api/team',        require('./routes/team'));
 app.use('/api/deployments', require('./routes/deployments'));
 app.use('/api/actuals',     require('./routes/actuals'));
 app.use('/api/dashboard',   require('./routes/dashboard'));

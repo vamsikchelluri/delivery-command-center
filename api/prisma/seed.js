@@ -231,6 +231,253 @@ async function main() {
   }
   console.log('✓ Resources');
 
+  // ── SAMPLE SOWs ──
+  // Fetch resource IDs by empId so we can assign deployments
+  const res = {};
+  for (const empId of ['EMP-001','EMP-002','EMP-003','EMP-004','EMP-005','EMP-006','EMP-007','CTR-001','CTR-002']) {
+    const r = await prisma.resource.findFirst({ where: { empId } });
+    if (r) res[empId] = r.id;
+  }
+
+  const sowsData = [
+    // ── SOW 1: T&M, Active, Coca-Cola S/4HANA ──
+    {
+      key: 'SOW-2024-001',
+      data: {
+        name:          'S/4HANA Finance Rollout',
+        client:        'Coca-Cola North America',
+        sowNumber:     'SOW-2024-001',
+        sowType:       'TM',
+        currency:      'USD',
+        status:        'ACTIVE',
+        startDate:     new Date('2024-06-01'),
+        endDate:       new Date('2025-09-30'),
+        totalValue:    650000,
+        deliveryMgr:   'Priya Iyer',
+        accountMgr:    'James Miller',
+        clientContact: 'David Walsh',
+        clientRef:     'PO-CC-2024-88',
+        notes:         'Phase 1 covers GL, AP, AR and Cost Center Accounting. Phase 2 (COPA, Product Costing) starts Q3 2025.',
+      },
+      roles: [
+        {
+          title: 'SAP FICO Lead', skillName: 'SAP FICO', billingType: 'TM', billRate: 145,
+          planStart: new Date('2024-06-01'), planEnd: new Date('2025-09-30'),
+          deployment: { empId: 'EMP-001', allocation: 100, start: '2024-06-01', end: '2025-09-30' },
+        },
+        {
+          title: 'SAP SD Consultant', skillName: 'SAP SD', billingType: 'TM', billRate: 125,
+          planStart: new Date('2024-08-01'), planEnd: new Date('2025-09-30'),
+          deployment: { empId: 'EMP-003', allocation: 100, start: '2024-08-01', end: '2025-09-30' },
+        },
+        {
+          title: 'ABAP Developer', skillName: 'ABAP', billingType: 'TM', billRate: 110,
+          planStart: new Date('2024-09-01'), planEnd: new Date('2025-06-30'),
+          deployment: { empId: 'CTR-001', allocation: 100, start: '2024-09-01', end: '2025-06-30' },
+        },
+      ],
+      milestones: [],
+      actuals: [
+        // Ravi Kumar (EMP-001) — 6 months of actuals
+        { empId: 'EMP-001', roleTitle: 'SAP FICO Lead',     month: '2024-09', hours: 168 },
+        { empId: 'EMP-001', roleTitle: 'SAP FICO Lead',     month: '2024-10', hours: 172 },
+        { empId: 'EMP-001', roleTitle: 'SAP FICO Lead',     month: '2024-11', hours: 160 },
+        { empId: 'EMP-001', roleTitle: 'SAP FICO Lead',     month: '2024-12', hours: 152 },
+        { empId: 'EMP-001', roleTitle: 'SAP FICO Lead',     month: '2025-01', hours: 168 },
+        { empId: 'EMP-001', roleTitle: 'SAP FICO Lead',     month: '2025-02', hours: 160 },
+        // Vikram (EMP-003)
+        { empId: 'EMP-003', roleTitle: 'SAP SD Consultant', month: '2024-09', hours: 160 },
+        { empId: 'EMP-003', roleTitle: 'SAP SD Consultant', month: '2024-10', hours: 168 },
+        { empId: 'EMP-003', roleTitle: 'SAP SD Consultant', month: '2024-11', hours: 155 },
+        // Kiran (CTR-001)
+        { empId: 'CTR-001', roleTitle: 'ABAP Developer',    month: '2024-10', hours: 168 },
+        { empId: 'CTR-001', roleTitle: 'ABAP Developer',    month: '2024-11', hours: 160 },
+        { empId: 'CTR-001', roleTitle: 'ABAP Developer',    month: '2024-12', hours: 148 },
+      ],
+    },
+
+    // ── SOW 2: Fixed Price, Active, Pepsi EWM ──
+    {
+      key: 'SOW-2024-002',
+      data: {
+        name:          'EWM Implementation — DC Automation',
+        client:        'PepsiCo Supply Chain',
+        sowNumber:     'SOW-2024-002',
+        sowType:       'FIXED',
+        currency:      'USD',
+        status:        'ACTIVE',
+        startDate:     new Date('2024-10-01'),
+        endDate:       new Date('2025-06-30'),
+        totalValue:    420000,
+        deliveryMgr:   'Priya Iyer',
+        accountMgr:    'James Miller',
+        clientContact: 'Sandra Lee',
+        clientRef:     'PO-PEP-2024-12',
+        notes:         'Fixed price EWM rollout across 3 DCs. Milestone billing.',
+      },
+      roles: [
+        {
+          title: 'ABAP Developer', skillName: 'ABAP', billingType: 'TM', billRate: 115,
+          planStart: new Date('2024-10-01'), planEnd: new Date('2025-06-30'),
+          deployment: { empId: 'EMP-002', allocation: 100, start: '2024-10-01', end: '2025-06-30' },
+        },
+        {
+          title: 'Basis Consultant', skillName: 'Basis/Infra', billingType: 'TM', billRate: 105,
+          planStart: new Date('2024-10-01'), planEnd: new Date('2025-03-31'),
+          deployment: { empId: 'EMP-004', allocation: 75, start: '2024-10-01', end: '2025-03-31' },
+        },
+      ],
+      milestones: [
+        { name: 'DC1 Blueprint Sign-off',     plannedDate: new Date('2024-12-15'), plannedAmount: 105000, actualDate: new Date('2024-12-18'), invoiceDate: new Date('2024-12-20'), paymentDate: new Date('2025-01-15'), status: 'RECEIVED' },
+        { name: 'DC1 Go-Live',                plannedDate: new Date('2025-02-28'), plannedAmount: 105000, actualDate: new Date('2025-03-05'), invoiceDate: new Date('2025-03-07'), paymentDate: null,                   status: 'INVOICED' },
+        { name: 'DC2 + DC3 Blueprint',        plannedDate: new Date('2025-04-30'), plannedAmount: 105000, actualDate: null,                  invoiceDate: null,                   paymentDate: null,                   status: 'UPCOMING' },
+        { name: 'DC2 + DC3 Go-Live & Closure',plannedDate: new Date('2025-06-30'), plannedAmount: 105000, actualDate: null,                  invoiceDate: null,                   paymentDate: null,                   status: 'UPCOMING' },
+      ],
+      actuals: [
+        { empId: 'EMP-002', roleTitle: 'ABAP Developer',  month: '2024-10', hours: 168 },
+        { empId: 'EMP-002', roleTitle: 'ABAP Developer',  month: '2024-11', hours: 172 },
+        { empId: 'EMP-002', roleTitle: 'ABAP Developer',  month: '2024-12', hours: 160 },
+        { empId: 'EMP-002', roleTitle: 'ABAP Developer',  month: '2025-01', hours: 168 },
+        { empId: 'EMP-004', roleTitle: 'Basis Consultant', month: '2024-10', hours: 126 },
+        { empId: 'EMP-004', roleTitle: 'Basis Consultant', month: '2024-11', hours: 130 },
+        { empId: 'EMP-004', roleTitle: 'Basis Consultant', month: '2024-12', hours: 122 },
+      ],
+    },
+
+    // ── SOW 3: T&M, Active, JPMorgan Onsite ──
+    {
+      key: 'SOW-2025-001',
+      data: {
+        name:          'SAP FICO Support & Enhancements',
+        client:        'JPMorgan Chase',
+        sowNumber:     'SOW-2025-001',
+        sowType:       'TM',
+        currency:      'USD',
+        status:        'ACTIVE',
+        startDate:     new Date('2025-01-01'),
+        endDate:       new Date('2025-12-31'),
+        totalValue:    320000,
+        deliveryMgr:   'James Miller',
+        accountMgr:    'James Miller',
+        clientContact: 'Michael Torres',
+        clientRef:     'PO-JPM-2025-04',
+        notes:         'Ongoing AMS support plus quarterly enhancement sprints.',
+      },
+      roles: [
+        {
+          title: 'Sr. SAP FICO Consultant', skillName: 'SAP FICO', billingType: 'TM', billRate: 175,
+          planStart: new Date('2025-01-01'), planEnd: new Date('2025-12-31'),
+          deployment: { empId: 'EMP-007', allocation: 100, start: '2025-01-01', end: '2025-12-31' },
+        },
+        {
+          title: 'SAP SD Consultant', skillName: 'SAP SD', billingType: 'TM', billRate: 155,
+          planStart: new Date('2025-03-01'), planEnd: new Date('2025-09-30'),
+          deployment: { empId: 'CTR-002', allocation: 100, start: '2025-03-01', end: '2025-09-30' },
+        },
+      ],
+      milestones: [],
+      actuals: [
+        { empId: 'EMP-007', roleTitle: 'Sr. SAP FICO Consultant', month: '2025-01', hours: 160 },
+        { empId: 'EMP-007', roleTitle: 'Sr. SAP FICO Consultant', month: '2025-02', hours: 152 },
+        { empId: 'CTR-002', roleTitle: 'SAP SD Consultant',       month: '2025-03', hours: 168 },
+      ],
+    },
+
+    // ── SOW 4: Fixed Price, Completed ──
+    {
+      key: 'SOW-2023-003',
+      data: {
+        name:          'SAP BW/4HANA Migration',
+        client:        'Unilever Analytics',
+        sowNumber:     'SOW-2023-003',
+        sowType:       'FIXED',
+        currency:      'USD',
+        status:        'COMPLETED',
+        startDate:     new Date('2023-07-01'),
+        endDate:       new Date('2024-03-31'),
+        totalValue:    280000,
+        deliveryMgr:   'Priya Iyer',
+        accountMgr:    'Priya Iyer',
+        clientContact: 'Claire Nguyen',
+        clientRef:     'PO-UL-2023-07',
+        notes:         'Full BW classic to BW/4HANA migration. Delivered on time.',
+      },
+      roles: [
+        {
+          title: 'Project Manager', skillName: 'Project Management', billingType: 'FIXED_MONTHLY', fixedAmount: 18000,
+          planStart: new Date('2023-07-01'), planEnd: new Date('2024-03-31'),
+          deployment: { empId: 'EMP-005', allocation: 100, start: '2023-07-01', end: '2024-03-31' },
+        },
+        {
+          title: 'SD Analyst', skillName: 'SAP SD', billingType: 'TM', billRate: 120,
+          planStart: new Date('2023-07-01'), planEnd: new Date('2024-01-31'),
+          deployment: { empId: 'EMP-006', allocation: 100, start: '2023-07-01', end: '2024-01-31' },
+        },
+      ],
+      milestones: [
+        { name: 'Data Assessment & Mapping',  plannedDate: new Date('2023-09-30'), plannedAmount: 70000,  actualDate: new Date('2023-09-28'), invoiceDate: new Date('2023-10-02'), paymentDate: new Date('2023-10-30'), status: 'RECEIVED' },
+        { name: 'Migration Execution',        plannedDate: new Date('2023-12-31'), plannedAmount: 70000,  actualDate: new Date('2024-01-05'), invoiceDate: new Date('2024-01-08'), paymentDate: new Date('2024-02-05'), status: 'RECEIVED' },
+        { name: 'UAT Sign-off',               plannedDate: new Date('2024-02-29'), plannedAmount: 70000,  actualDate: new Date('2024-02-27'), invoiceDate: new Date('2024-03-01'), paymentDate: new Date('2024-03-28'), status: 'RECEIVED' },
+        { name: 'Go-Live & Hypercare',        plannedDate: new Date('2024-03-31'), plannedAmount: 70000,  actualDate: new Date('2024-03-31'), invoiceDate: new Date('2024-04-01'), paymentDate: new Date('2024-04-29'), status: 'RECEIVED' },
+      ],
+      actuals: [],
+    },
+  ];
+
+  for (const sow of sowsData) {
+    const existingProj = await prisma.project.findFirst({ where: { sowNumber: sow.key } });
+    if (existingProj) { console.log(`  skip SOW ${sow.key} (exists)`); continue; }
+
+    // Create project with milestones
+    const project = await prisma.project.create({
+      data: {
+        ...sow.data,
+        milestones: sow.milestones.length > 0 ? { create: sow.milestones } : undefined,
+      },
+    });
+
+    // Create roles + deployments + actuals
+    for (const roleSpec of sow.roles) {
+      const skill = await prisma.skill.findFirst({ where: { name: roleSpec.skillName } });
+      const role = await prisma.role.create({
+        data: {
+          projectId:   project.id,
+          title:       roleSpec.title,
+          skillId:     skill?.id || null,
+          billingType: roleSpec.billingType,
+          billRate:    roleSpec.billRate    || null,
+          fixedAmount: roleSpec.fixedAmount || null,
+          planStart:   roleSpec.planStart,
+          planEnd:     roleSpec.planEnd,
+        },
+      });
+
+      if (roleSpec.deployment && res[roleSpec.deployment.empId]) {
+        const dep = await prisma.deployment.create({
+          data: {
+            roleId:     role.id,
+            resourceId: res[roleSpec.deployment.empId],
+            allocation: roleSpec.deployment.allocation,
+            startDate:  new Date(roleSpec.deployment.start),
+            endDate:    new Date(roleSpec.deployment.end),
+          },
+        });
+
+        // Actuals for this deployment
+        const depActuals = sow.actuals.filter(a => a.empId === roleSpec.deployment.empId && a.roleTitle === roleSpec.title);
+        for (const act of depActuals) {
+          await prisma.actual.upsert({
+            where:  { deploymentId_month: { deploymentId: dep.id, month: act.month } },
+            update: { actualHours: act.hours },
+            create: { deploymentId: dep.id, month: act.month, actualHours: act.hours },
+          });
+        }
+      }
+    }
+    console.log(`  ✓ SOW ${sow.key} — ${sow.data.client}`);
+  }
+  console.log('✓ SOWs');
+
   console.log('\n✅ Seed complete.');
 }
 

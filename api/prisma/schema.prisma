@@ -42,8 +42,8 @@ enum ResourceStatus {
 }
 
 enum SowType {
-  TM        // Time & Materials
-  FIXED     // Fixed Price
+  TM
+  FIXED
 }
 
 enum BillingType {
@@ -60,12 +60,36 @@ enum ProjectStatus {
 }
 
 enum PipelineStage {
-  DISCOVERY
-  QUALIFIED
-  PROPOSAL
-  NEGOTIATION
+  QUALIFYING
+  PROPOSED
+  NEGOTIATING
   WON
   LOST
+}
+
+enum PersonRole {
+  ACCOUNT_MANAGER
+  DELIVERY_MANAGER
+}
+
+enum RoleStatus {
+  OPEN
+  IDENTIFIED
+  CONFIRMED
+}
+
+enum ExperienceLevel {
+  JUNIOR
+  MEDIUM
+  SENIOR
+}
+
+enum OppSource {
+  EXISTING_ACCOUNT
+  REFERRAL
+  RFP
+  COLD_OUTREACH
+  PARTNER
 }
 
 // ─────────────────────────────────────────
@@ -75,7 +99,7 @@ enum PipelineStage {
 model Skill {
   id        String          @id @default(cuid())
   name      String          @unique
-  submods   String[]        // array of sub-module names
+  submods   String[]
   sortOrder Int             @default(0)
   resources Resource[]      @relation("PrimarySkill")
   secSkills ResourceSkill[]
@@ -84,10 +108,10 @@ model Skill {
 }
 
 model Currency {
-  code      String   @id           // USD, INR, EUR
-  symbol    String                 // $, ₹, €
-  name      String                 // US Dollar, Indian Rupee
-  rateVsUSD Float    @default(1)   // 1 USD = rateVsUSD units of this currency
+  code      String   @id
+  symbol    String
+  name      String
+  rateVsUSD Float    @default(1)
   isBase    Boolean  @default(false)
   updatedAt DateTime @updatedAt
 }
@@ -98,53 +122,53 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
 }
 
+// Team — Account Managers and Delivery Managers
+model Person {
+  id        String     @id @default(cuid())
+  name      String
+  role      PersonRole
+  email     String?
+  phone     String?
+  notes     String?
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([role])
+}
+
 // ─────────────────────────────────────────
 //  RESOURCE
 // ─────────────────────────────────────────
 
 model Resource {
   id             String         @id @default(cuid())
-
-  // Identity
   name           String
-  empId          String?        // payroll/HRMS reference
+  empId          String?
   email          String?
   phone          String?
-
-  // Employment
   location       Location
   employmentType EmploymentType
-  joiningDate    DateTime?      // FT/PT
-  contractStart  DateTime?      // Contractor/C2C
-  contractEnd    DateTime?      // Contractor/C2C — triggers alert
-  noticePeriod   Int?           // days: 15, 30, 60, 90
-  rolloffDate    DateTime?      // triggers bench planning alert
-
-  // Compliance
-  visaType       String?        // H1B, OPT, GC, Citizen, L1, NA
-  visaExpiry     DateTime?      // alert 60 days before
+  joiningDate    DateTime?
+  contractStart  DateTime?
+  contractEnd    DateTime?
+  noticePeriod   Int?
+  rolloffDate    DateTime?
+  visaType       String?
+  visaExpiry     DateTime?
   bgCheckStatus  BgCheckStatus  @default(NOT_REQUIRED)
-
-  // Skills
   primarySkillId String
   primarySkill   Skill          @relation("PrimarySkill", fields: [primarySkillId], references: [id])
-  primarySubmods String[]       // sub-module names from primarySkill.submods
+  primarySubmods String[]
   secondarySkills ResourceSkill[]
-
-  // Cost — current active values (history in CostHistory)
-  costInput      Float          // CTC or rate depending on type
-  rateCurrency   String         @default("INR") // INR | USD — for offshore contractor/C2C
-  paymentTerms   String         // Monthly Payroll | Net 30 | Net 60
+  costInput      Float
+  rateCurrency   String         @default("INR")
+  paymentTerms   String
   payCurrency    String         @default("INR")
-
-  // Computed status (can be derived but stored for query performance)
   status         ResourceStatus @default(AVAILABLE)
   benchSince     DateTime?
-
-  // Relations
   costHistory    CostHistory[]
   deployments    Deployment[]
-
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -153,31 +177,28 @@ model Resource {
   @@index([location, employmentType])
 }
 
-// Secondary skills with their own sub-modules per resource
 model ResourceSkill {
   id         String   @id @default(cuid())
   resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   resourceId String
   skill      Skill    @relation(fields: [skillId], references: [id])
   skillId    String
-  submods    String[] // sub-modules for THIS skill on THIS resource
+  submods    String[]
 
   @@unique([resourceId, skillId])
 }
 
-// Point-in-time cost history — append only, never deleted
 model CostHistory {
   id            String    @id @default(cuid())
   resource      Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   resourceId    String
   effectiveFrom DateTime
-  effectiveTo   DateTime? // null = currently active
-  inputValue    Float     // the CTC or rate entered
-  inputCurrency String    // INR | USD
-  fxSnapshot    Float     // FX rate locked at time of entry
-  computedUSDhr Float     // locked computed rate — used for historical P&L
-  reason        String    // Joining | Increment | Renegotiation | Promotion | Correction
-
+  effectiveTo   DateTime?
+  inputValue    Float
+  inputCurrency String
+  fxSnapshot    Float
+  computedUSDhr Float
+  reason        String
   createdAt     DateTime  @default(now())
 
   @@index([resourceId, effectiveFrom])
@@ -188,39 +209,30 @@ model CostHistory {
 // ─────────────────────────────────────────
 
 model Project {
-  id          String        @id @default(cuid())
-  client      String
-  name        String
-  sowNumber   String?       @unique
-  sowType     SowType
-  currency    String        @default("USD")
-  startDate   DateTime
-  endDate     DateTime
-  status      ProjectStatus @default(ACTIVE)
-
-  // Optional SOW metadata
-  clientRef   String?       // client PO / reference number
+  id            String        @id @default(cuid())
+  client        String
+  name          String
+  sowNumber     String?       @unique
+  sowType       SowType
+  currency      String        @default("USD")
+  startDate     DateTime
+  endDate       DateTime
+  status        ProjectStatus @default(ACTIVE)
+  clientRef     String?
   clientContact String?
-  deliveryMgr String?
-  accountMgr  String?
-  notes       String?
-
-  // For fixed price — NTE cap for T&M or total contract value
-  totalValue  Float?
-
-  // Relations
-  roles       Role[]
-  milestones  Milestone[]   // fixed price billing milestones
-  parentId    String?       // for addendums — links to parent SOW
-  parent      Project?      @relation("Addendums", fields: [parentId], references: [id])
-  addendums   Project[]     @relation("Addendums")
-
-  // Pipeline link (if converted from opportunity)
-  opportunityId String?     @unique
-  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
-
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  deliveryMgr   String?
+  accountMgr    String?
+  notes         String?
+  totalValue    Float?
+  roles         Role[]
+  milestones    Milestone[]
+  parentId      String?
+  parent        Project?      @relation("Addendums", fields: [parentId], references: [id])
+  addendums     Project[]     @relation("Addendums")
+  opportunityId String?       @unique
+  opportunity   Opportunity?  @relation(fields: [opportunityId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([status])
   @@index([client])
@@ -231,10 +243,10 @@ model Role {
   project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId   String
   title       String
-  skillId     String?     // expected skill for this role
-  billRate    Float?      // USD/hr for T&M
+  skillId     String?
+  billRate    Float?
   billingType BillingType @default(TM)
-  fixedAmount Float?      // for FIXED_MONTHLY billing type
+  fixedAmount Float?
   planStart   DateTime
   planEnd     DateTime
   deployments Deployment[]
@@ -242,19 +254,18 @@ model Role {
   @@index([projectId])
 }
 
-// Fixed-price billing milestones
 model Milestone {
   id            String    @id @default(cuid())
   project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId     String
-  name          String    // "Phase 1 — Requirements Signoff"
+  name          String
   plannedDate   DateTime
   plannedAmount Float
   actualDate    DateTime?
   actualAmount  Float?
   invoiceDate   DateTime?
   paymentDate   DateTime?
-  status        String    @default("UPCOMING") // UPCOMING | INVOICED | RECEIVED | OVERDUE
+  status        String    @default("UPCOMING")
 
   @@index([projectId])
 }
@@ -263,8 +274,6 @@ model Milestone {
 //  DEPLOYMENTS & ACTUALS
 // ─────────────────────────────────────────
 
-// One resource assigned to one role for a date range at an allocation %
-// Multiple deployments per role = sequential resource assignment
 model Deployment {
   id            String    @id @default(cuid())
   role          Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -273,9 +282,8 @@ model Deployment {
   resourceId    String
   startDate     DateTime
   endDate       DateTime
-  allocation    Int       // 0-100 percent
+  allocation    Int
   actuals       Actual[]
-
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -283,21 +291,18 @@ model Deployment {
   @@index([roleId])
 }
 
-// Monthly actuals — entered by PM/admin, approved externally
-// One row per deployment per month
 model Actual {
   id            String     @id @default(cuid())
   deployment    Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
   deploymentId  String
-  month         String     // "2025-06" — YYYY-MM format
+  month         String
   actualHours   Float
   enteredBy     String?
   notes         String?
-
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  @@unique([deploymentId, month])  // one entry per deployment per month
+  @@unique([deploymentId, month])
   @@index([month])
 }
 
@@ -306,31 +311,48 @@ model Actual {
 // ─────────────────────────────────────────
 
 model Opportunity {
-  id          String        @id @default(cuid())
-  client      String
-  name        String
-  stage       PipelineStage @default(DISCOVERY)
-  probability Int           @default(50)  // 0-100
-  closeDate   DateTime?
-  owner       String?
-  notes       String?
-  roles       OppRole[]
-  project     Project?      // set when converted to SOW
-
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  client          String
+  name            String
+  source          OppSource     @default(EXISTING_ACCOUNT)
+  accountManagerId String?
+  stage           PipelineStage @default(QUALIFYING)
+  probability     Int           @default(20)
+  startDate       DateTime?
+  endDate         DateTime?
+  targetMargin    Float         @default(35)  // percent e.g. 35 = 35%
+  currency        String        @default("USD")
+  notes           String?
+  convertedAt     DateTime?     // set when converted to SOW
+  roles           OppRole[]
+  project         Project?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([stage])
+  @@index([client])
 }
 
 model OppRole {
-  id            String      @id @default(cuid())
-  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  opportunityId String
-  title         String
-  skillId       String?
-  billRate      Float?      // USD/hr
-  estStartDate  DateTime?
-  durationMonths Int        @default(6)
-  hoursPerMonth Int         @default(168)
+  id              String         @id @default(cuid())
+  opportunity     Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId   String
+  title           String
+  location        Location       @default(OFFSHORE)
+  ftPt            String         @default("Full-Time")  // Full-Time | Part-Time
+  experienceLevel ExperienceLevel @default(MEDIUM)
+  yearsExp        String?        // "7-10", "10+", "3-7"
+  totalHours      Float?
+  billRate        Float?         // estimated $/hr
+  costGuidance    Float?         // auto or manual override
+  costOverride    Boolean        @default(false)  // true = manual override
+  status          RoleStatus     @default(OPEN)
+  resourceName    String?        // free text OR name of matched resource
+  resourceId      String?        // link to Resource if in roster
+  notes           String?
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([opportunityId])
 }

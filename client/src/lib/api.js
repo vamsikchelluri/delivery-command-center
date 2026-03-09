@@ -52,10 +52,15 @@ export const projectsApi = {
 };
 
 export const pipelineApi = {
-  list:   (params) => api.get('/pipeline', { params }),
-  create: (data)   => api.post('/pipeline', data),
-  update: (id, d)  => api.patch(`/pipeline/${id}`, d),
-  delete: (id)     => api.delete(`/pipeline/${id}`),
+  list:        (params)   => api.get('/pipeline', { params }),
+  get:         (id)       => api.get(`/pipeline/${id}`),
+  create:      (data)     => api.post('/pipeline', data),
+  update:      (id, d)    => api.patch(`/pipeline/${id}`, d),
+  delete:      (id)       => api.delete(`/pipeline/${id}`),
+  addRole:     (oppId, d) => api.post(`/pipeline/${oppId}/roles`, d),
+  updateRole:  (rId, d)   => api.patch(`/pipeline/roles/${rId}`, d),
+  deleteRole:  (rId)      => api.delete(`/pipeline/roles/${rId}`),
+  convert:     (id)       => api.post(`/pipeline/${id}/convert`),
 };
 
 export const deploymentsApi = {
@@ -74,3 +79,10 @@ export const dashboardApi = {
 };
 
 export default api;
+
+export const teamApi = {
+  list:   (params) => api.get('/team', { params }),
+  create: (data)   => api.post('/team', data),
+  update: (id, d)  => api.patch(`/team/${id}`, d),
+  delete: (id)     => api.delete(`/team/${id}`),
+};
