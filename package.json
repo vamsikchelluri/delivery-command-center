@@ -1,0 +1,19 @@
+{
+  "name": "delivery-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:client\"",
+    "dev:api": "cd api && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd api && npm start",
+    "db:migrate": "cd api && npx prisma migrate deploy",
+    "db:seed": "cd api && npx prisma db seed",
+    "db:studio": "cd api && npx prisma studio",
+    "postinstall": "cd api && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
