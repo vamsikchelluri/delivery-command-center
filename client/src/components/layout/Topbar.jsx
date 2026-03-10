@@ -1,58 +1,65 @@
-// src/components/layout/Topbar.jsx
-import { useLocation } from 'react-router-dom';
-
-const PAGE_META = {
-  '/dashboard':  { title: 'COO 360° View',        sub: 'Live operational snapshot' },
-  '/resources':  { title: 'Resource Management',   sub: 'Full roster · cost rates · deployment history' },
-  '/projects':   { title: 'Projects (SOW)',         sub: 'Active engagements · roles · actuals' },
-  '/pipeline':   { title: 'Pipeline',               sub: 'Opportunities · conversion tracking' },
-  '/financials': { title: 'P&L / Financials',       sub: 'Revenue · cost · margin by project & company' },
-  '/settings':   { title: 'Settings & Master Data', sub: 'Currencies · skills · system parameters' },
-};
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 export default function Topbar({ theme, toggleTheme }) {
-  const loc  = useLocation();
-  const base = '/' + loc.pathname.split('/')[1];
-  const meta = PAGE_META[base] || { title: 'Delivery Command Center', sub: '' };
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [showMenu, setShowMenu] = useState(false);
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login');
+  }
 
   return (
-    <div style={{
+    <header style={{
       height: 52, borderBottom: '1px solid var(--border)',
-      display: 'flex', alignItems: 'center', padding: '0 22px', gap: 10,
-      background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 50,
-      boxShadow: 'var(--shadow2)',
+      display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+      padding: '0 20px', gap: 12, background: 'var(--surface)', flexShrink: 0,
     }}>
-      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>
-        {meta.title}
-      </span>
-      {meta.sub && (
-        <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>— {meta.sub}</span>
-      )}
+      {/* Theme toggle */}
+      <button onClick={toggleTheme} style={{ background:'none', border:'1px solid var(--border)', borderRadius:7, padding:'5px 10px', cursor:'pointer', color:'var(--muted)', fontSize:12 }}>
+        {theme === 'dark' ? '☀ Light' : '🌙 Dark'}
+      </button>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 9 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--muted)', background: 'var(--surface2)', border: '1px solid var(--border)', padding: '3px 9px', borderRadius: 20 }}>
-          <div className="pulse-dot" />
-          Live
-        </div>
-
-        <button
-          onClick={toggleTheme}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            background: 'var(--surface2)', border: '1px solid var(--border)',
-            borderRadius: 20, padding: '3px 8px 3px 7px', cursor: 'pointer',
-            fontSize: 10.5, color: 'var(--muted)', transition: 'border-color 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-        >
-          <span style={{ fontSize: 12 }}>{theme === 'dark' ? '☀' : '🌙'}</span>
-          <div style={{ width: 28, height: 15, background: theme === 'dark' ? 'var(--border2)' : 'var(--accent)', borderRadius: 8, position: 'relative', transition: 'background 0.25s' }}>
-            <div style={{ position: 'absolute', top: 2, left: 2, width: 11, height: 11, background: '#fff', borderRadius: '50%', transition: 'transform 0.2s', transform: theme === 'light' ? 'translateX(13px)' : 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.35)' }} />
+      {/* User menu */}
+      <div style={{ position: 'relative' }}>
+        <button onClick={() => setShowMenu(p => !p)} style={{
+          display:'flex', alignItems:'center', gap:8, background:'var(--surface2)',
+          border:'1px solid var(--border)', borderRadius:8, padding:'6px 10px',
+          cursor:'pointer', color:'var(--text)',
+        }}>
+          <div style={{ width:24, height:24, borderRadius:6, background:'linear-gradient(135deg, var(--accent2), var(--accent))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:800, color:'#fff' }}>
+            {user?.name?.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}
           </div>
-          <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          <div style={{ textAlign:'left' }}>
+            <div style={{ fontSize:11.5, fontWeight:700, color:'var(--text)' }}>{user?.name}</div>
+            <div style={{ fontSize:9.5, color:'var(--muted)' }}>{user?.roleLabel}</div>
+          </div>
+          <span style={{ fontSize:10, color:'var(--muted)', marginLeft:2 }}>▾</span>
         </button>
+
+        {showMenu && (
+          <div style={{ position:'absolute', right:0, top:'calc(100% + 6px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:8, minWidth:180, zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,0.3)' }}>
+            <div style={{ padding:'6px 10px', fontSize:11, color:'var(--muted)', borderBottom:'1px solid var(--border)', marginBottom:6 }}>
+              {user?.email}
+            </div>
+            <button onClick={() => { setShowMenu(false); navigate('/settings'); }}
+              style={{ width:'100%', textAlign:'left', background:'none', border:'none', padding:'7px 10px', borderRadius:6, cursor:'pointer', fontSize:12, color:'var(--text)' }}
+              onMouseEnter={e => e.target.style.background='var(--surface2)'}
+              onMouseLeave={e => e.target.style.background='none'}>
+              ⚙ Settings
+            </button>
+            <button onClick={handleLogout}
+              style={{ width:'100%', textAlign:'left', background:'none', border:'none', padding:'7px 10px', borderRadius:6, cursor:'pointer', fontSize:12, color:'var(--danger)' }}
+              onMouseEnter={e => e.target.style.background='rgba(239,68,68,0.08)'}
+              onMouseLeave={e => e.target.style.background='none'}>
+              ⎋ Sign out
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </header>
   );
 }

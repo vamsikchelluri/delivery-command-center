@@ -1,188 +1,387 @@
-// src/pages/Settings.jsx
+// src/pages/Settings.jsx — Users, Roles/Permissions, Audit Log, Sessions, System Config
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { skillsApi, currenciesApi, configApi } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { usersApi, rolesApi, auditApi, authApi } from '../lib/auth';
+import { configApi } from '../lib/api';
+import { format } from 'date-fns';
+
+const MODULES = ['dashboard','resources','projects','pipeline','team','financials','settings'];
+const MODULE_LABELS = { dashboard:'Dashboard', resources:'Resources', projects:'Projects (SOW)', pipeline:'Pipeline', team:'Team', financials:'Financials', settings:'Settings' };
+const ACCESS_LEVELS = ['FULL','READ','NONE'];
+const ACCESS_COLORS = { FULL:'var(--accent)', READ:'var(--accent2)', NONE:'var(--muted)' };
+const FIELD_KEYS = [
+  { key:'resource_cost',    label:'Resource CTC / Salary' },
+  { key:'resource_rate',    label:'Resource Hourly Rate (USD)' },
+  { key:'sow_billrate',     label:'SOW Bill Rates' },
+  { key:'sow_margin',       label:'SOW Revenue & Margin' },
+  { key:'pipeline_margin',  label:'Pipeline Revenue & Margin' },
+  { key:'payment_terms',    label:'Contractor Payment Terms' },
+];
+
+function fmtDate(d) { return d ? format(new Date(d), 'dd MMM yyyy HH:mm') : '—'; }
 
 export default function Settings() {
-  const qc = useQueryClient();
-  const { data: skills = []     } = useQuery({ queryKey: ['skills'],     queryFn: skillsApi.list });
-  const { data: currencies = [] } = useQuery({ queryKey: ['currencies'], queryFn: currenciesApi.list });
-  const { data: config = {}     } = useQuery({ queryKey: ['config'],     queryFn: configApi.get });
+  const { isSuperAdmin, user } = useAuth();
+  const [tab, setTab] = useState('config');
 
-  return (
-    <div>
-      <div className="section-header"><div><div className="section-title">Settings & Master Data</div><div className="section-sub">Currencies · exchange rates · system parameters · skills</div></div></div>
-      <CurrencySettings currencies={currencies} qc={qc} />
-      <SystemConfigSettings config={config} qc={qc} />
-      <SkillsSettings skills={skills} qc={qc} />
-    </div>
-  );
-}
-
-function CurrencySettings({ currencies, qc }) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ code: '', symbol: '', name: '', rateVsUSD: '' });
-
-  const rateMut = useMutation({
-    mutationFn: ({ code, rate }) => currenciesApi.updateRate(code, rate),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['currencies'] }),
-  });
-  const addMut = useMutation({
-    mutationFn: currenciesApi.upsert,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['currencies'] }); setShowAdd(false); setForm({ code:'',symbol:'',name:'',rateVsUSD:'' }); },
-  });
-  const delMut = useMutation({
-    mutationFn: currenciesApi.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['currencies'] }),
-  });
-
-  return (
-    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px 18px', marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 13 }}>🌐 Currencies & Exchange Rates</div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(s => !s)}>+ Add Currency</button>
-      </div>
-      <div className="tip-box" style={{ marginBottom: 12 }}>Exchange rates are vs USD. Update monthly. Changes recompute current-period cost rates instantly. Historical P&L always uses the rate locked at time of entry.</div>
-      {showAdd && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, padding: 14, marginBottom: 12 }}>
-          <div className="form-grid-3">
-            <div className="form-group"><label className="form-label">Code</label><input className="form-input" placeholder="EUR" maxLength={3} value={form.code} onChange={e=>setForm(f=>({...f,code:e.target.value.toUpperCase()}))} /></div>
-            <div className="form-group"><label className="form-label">Symbol</label><input className="form-input" placeholder="€" value={form.symbol} onChange={e=>setForm(f=>({...f,symbol:e.target.value}))} /></div>
-            <div className="form-group"><label className="form-label">Name</label><input className="form-input" placeholder="Euro" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></div>
-          </div>
-          <div className="form-group"><label className="form-label">Rate vs USD (1 USD = ? units)</label><input className="form-input" type="number" placeholder="0.93" value={form.rateVsUSD} onChange={e=>setForm(f=>({...f,rateVsUSD:e.target.value}))} /></div>
-          <div className="form-footer">
-            <button className="btn btn-outline" onClick={() => setShowAdd(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={() => addMut.mutate(form)}>Save</button>
-          </div>
-        </div>
-      )}
-      {currencies.map(c => (
-        <div key={c.code} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 800, width: 28, color: 'var(--accent)' }}>{c.symbol}</span>
-          <span style={{ fontSize: 12, color: 'var(--text2)', minWidth: 120 }}>{c.name}</span>
-          <span className="text-muted text-xs">{c.isBase ? '' : '1 USD ='}</span>
-          {c.isBase ? (
-            <span style={{ fontWeight: 700, fontSize: 13 }}>1.00</span>
-          ) : (
-            <input className="form-input" type="number" style={{ width: 110, textAlign: 'right' }} defaultValue={c.rateVsUSD} step="0.01"
-              onBlur={e => rateMut.mutate({ code: c.code, rate: parseFloat(e.target.value) })} />
-          )}
-          <span className="text-muted text-xs">{c.isBase ? '' : c.code}</span>
-          {c.isBase ? <span className="badge badge-green" style={{ marginLeft: 'auto' }}>Base</span> : (
-            <button className="btn btn-danger btn-xs" style={{ marginLeft: 'auto' }} onClick={() => delMut.mutate(c.code)}>✕</button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SystemConfigSettings({ config, qc }) {
-  const mut = useMutation({
-    mutationFn: configApi.update,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['config'] }),
-  });
-
-  const rows = [
-    { key: 'STANDARD_HOURS_YEAR', label: 'Standard Hours / Year',        sub: 'Divisor for FT/PT cost rate. 1800 covers bench + mandatory leave.', step: 1 },
-    { key: 'OVERHEAD_MULTIPLIER',  label: 'Overhead Multiplier (FT/PT)', sub: 'Covers benefits, HR overhead. Contractors/C2C always 1.0×.',        step: 0.05 },
-    { key: 'DEFAULT_WORKING_DAYS', label: 'Default Working Days / Month', sub: 'Used for planned revenue and bench burn calculations.',              step: 1 },
-    { key: 'WORKING_HOURS_DAY',    label: 'Working Hours / Day',          sub: 'Standard billable hours per working day.',                          step: 1 },
+  const tabs = [
+    { key:'config',    label:'⚙ System Config' },
+    ...(isSuperAdmin ? [
+      { key:'users',   label:'👤 Users' },
+      { key:'roles',   label:'🔐 Roles & Permissions' },
+      { key:'audit',   label:'📋 Audit Log' },
+      { key:'session', label:'🔑 My Sessions' },
+    ] : [
+      { key:'session', label:'🔑 My Sessions' },
+    ]),
   ];
 
   return (
-    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px 18px', marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14 }}>⚙ Cost Calculation Parameters</div>
-      {rows.map(r => (
-        <div key={r.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid var(--border)', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text2)' }}>{r.label}</div>
-            <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{r.sub}</div>
-          </div>
-          <input
-            className="form-input" type="number" step={r.step}
-            style={{ width: 130, textAlign: 'right' }}
-            defaultValue={config[r.key] || ''}
-            onBlur={e => mut.mutate({ [r.key]: e.target.value })}
-          />
+    <div>
+      <div className="section-header">
+        <div>
+          <div className="section-title">Settings</div>
+          <div className="section-sub">System configuration · Users · Roles · Security</div>
         </div>
-      ))}
+      </div>
+
+      <div className="card">
+        <div className="tabs">
+          {tabs.map(t => <div key={t.key} className={`tab ${tab===t.key?'active':''}`} onClick={() => setTab(t.key)}>{t.label}</div>)}
+        </div>
+        <div className="card-body">
+          {tab === 'config'  && <SystemConfigTab />}
+          {tab === 'users'   && <UsersTab />}
+          {tab === 'roles'   && <RolesTab />}
+          {tab === 'audit'   && <AuditTab />}
+          {tab === 'session' && <SessionsTab />}
+        </div>
+      </div>
     </div>
   );
 }
 
-function SkillsSettings({ skills, qc }) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ name: '', submods: '' });
-  const [showSubmod, setShowSubmod] = useState(null); // skillId for add-submod inline
+// ── SYSTEM CONFIG ──────────────────────────────────────────
+function SystemConfigTab() {
+  const qc = useQueryClient();
+  const { data: config = {} } = useQuery({ queryKey:['config'], queryFn: configApi.get });
+  const [form, setForm] = useState(null);
+  const f = form || config;
+  const set = (k,v) => setForm(p => ({ ...(p||config), [k]:v }));
 
-  const createMut = useMutation({
-    mutationFn: skillsApi.create,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['skills'] }); setShowAdd(false); setForm({ name:'',submods:'' }); },
+  const saveMut = useMutation({
+    mutationFn: configApi.update,
+    onSuccess: () => { qc.invalidateQueries({ queryKey:['config'] }); setForm(null); }
   });
-  const updateMut = useMutation({
-    mutationFn: ({ id, data }) => skillsApi.update(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['skills'] }); setEditId(null); },
-  });
-  const deleteMut = useMutation({
-    mutationFn: skillsApi.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['skills'] }),
-  });
-
-  function startEdit(sk) {
-    setEditId(sk.id);
-    setForm({ name: sk.name, submods: sk.submods.join(', ') });
-  }
 
   return (
-    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px 18px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 13 }}>🎯 Skills & Sub-modules Master Data</div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(s=>!s); setEditId(null); }}>+ Add Skill</button>
+    <div style={{ maxWidth: 500 }}>
+      <div className="modal-section">Cost Engine Parameters</div>
+      <div className="form-grid-2">
+        {[
+          { key:'fxRate',       label:'FX Rate (INR per USD)',    placeholder:'88'   },
+          { key:'hoursPerYear', label:'Billable Hours / Year',    placeholder:'1800' },
+          { key:'wdPerMonth',   label:'Working Days / Month',     placeholder:'21'   },
+          { key:'hpd',          label:'Hours Per Day',            placeholder:'8'    },
+          { key:'overhead',     label:'Overhead Multiplier',      placeholder:'1.2'  },
+        ].map(({ key, label, placeholder }) => (
+          <div key={key} className="form-group">
+            <label className="form-label">{label}</label>
+            <input className="form-input" value={f[key] || ''} placeholder={placeholder} onChange={e => set(key, e.target.value)} />
+          </div>
+        ))}
       </div>
-      <div className="info-box" style={{ marginBottom: 10 }}>Changes apply immediately to all resource dropdowns.</div>
-      {showAdd && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, padding: 14, marginBottom: 12 }}>
-          <div className="form-group"><label className="form-label">Skill Name *</label><input className="form-input" placeholder="e.g. SAP IBP" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></div>
-          <div className="form-group"><label className="form-label">Sub-modules (comma-separated)</label><input className="form-input" placeholder="e.g. Demand Planning, Supply Planning, S&OP" value={form.submods} onChange={e=>setForm(f=>({...f,submods:e.target.value}))} /></div>
-          <div className="form-footer">
-            <button className="btn btn-outline" onClick={() => setShowAdd(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={() => createMut.mutate({ name: form.name, submods: form.submods.split(',').map(s=>s.trim()).filter(Boolean) })}>Save Skill</button>
+      {form && (
+        <div style={{ display:'flex', gap:8, marginTop:8 }}>
+          <button className="btn btn-outline" onClick={() => setForm(null)}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}>
+            {saveMut.isPending ? 'Saving…' : 'Save Config'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── USERS ──────────────────────────────────────────────────
+function UsersTab() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing,  setEditing]  = useState(null);
+
+  const { data: users = [] } = useQuery({ queryKey:['users'], queryFn: usersApi.list });
+  const { data: roles = [] } = useQuery({ queryKey:['roles'], queryFn: rolesApi.list });
+
+  const deleteMut = useMutation({
+    mutationFn: usersApi.delete,
+    onSuccess:  () => qc.invalidateQueries({ queryKey:['users'] }),
+  });
+
+  if (showForm || editing) return (
+    <UserForm
+      user={editing} roles={roles}
+      onClose={() => { setShowForm(false); setEditing(null); }}
+      onSaved={() => { qc.invalidateQueries({ queryKey:['users'] }); setShowForm(false); setEditing(null); }}
+    />
+  );
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
+        <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add User</button>
+      </div>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead><tr>
+            <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th>
+          </tr></thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id}>
+                <td style={{ fontWeight:700 }}>{u.name}</td>
+                <td style={{ fontSize:11.5, color:'var(--muted)' }}>{u.email}</td>
+                <td><span className="badge badge-blue">{u.role?.label}</span></td>
+                <td><span className={`badge ${u.active ? 'badge-green' : 'badge-gray'}`}><span className="badge-dot" />{u.active ? 'Active':'Inactive'}</span></td>
+                <td style={{ fontSize:11, color:'var(--muted)' }}>{fmtDate(u.lastLogin)}</td>
+                <td style={{ whiteSpace:'nowrap' }}>
+                  <button className="btn btn-outline btn-xs" onClick={() => setEditing(u)}>Edit</button>
+                  <button className="btn btn-danger btn-xs" style={{ marginLeft:4 }}
+                    onClick={() => { if (window.confirm(`Deactivate ${u.name}?`)) deleteMut.mutate(u.id); }}>
+                    Deactivate
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function UserForm({ user, roles, onClose, onSaved }) {
+  const isEdit = !!user;
+  const [form, setForm] = useState({
+    name:         user?.name     || '',
+    email:        user?.email    || '',
+    roleId:       user?.roleId   || '',
+    password:     '',
+    mustChangePwd: user ? user.mustChangePwd : true,
+    active:       user?.active   ?? true,
+  });
+  const f = (k,v) => setForm(p => ({ ...p, [k]:v }));
+
+  const saveMut = useMutation({
+    mutationFn: (data) => isEdit ? usersApi.update(user.id, data) : usersApi.create(data),
+    onSuccess: onSaved,
+  });
+
+  return (
+    <div style={{ maxWidth:500 }}>
+      <div style={{ fontWeight:700, fontSize:14, marginBottom:16 }}>{isEdit ? `Edit — ${user.name}` : 'New User'}</div>
+      <div className="form-grid-2">
+        <div className="form-group"><label className="form-label">Full Name *</label><input className="form-input" value={form.name} onChange={e => f('name',e.target.value)} /></div>
+        <div className="form-group"><label className="form-label">Email *</label><input className="form-input" type="email" value={form.email} onChange={e => f('email',e.target.value)} /></div>
+        <div className="form-group"><label className="form-label">Role *</label>
+          <select className="form-select" value={form.roleId} onChange={e => f('roleId',e.target.value)}>
+            <option value="">— Select Role —</option>
+            {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">{isEdit ? 'New Password (leave blank to keep)' : 'Password *'}</label>
+          <input className="form-input" type="password" value={form.password} onChange={e => f('password',e.target.value)} placeholder={isEdit ? 'Leave blank to keep' : 'Min 8 characters'} />
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:16, marginTop:4, marginBottom:16 }}>
+        <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--text2)', cursor:'pointer' }}>
+          <input type="checkbox" checked={form.mustChangePwd} onChange={e => f('mustChangePwd',e.target.checked)} />
+          Must change password on next login
+        </label>
+        {isEdit && (
+          <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--text2)', cursor:'pointer' }}>
+            <input type="checkbox" checked={form.active} onChange={e => f('active',e.target.checked)} />
+            Active
+          </label>
+        )}
+      </div>
+      {saveMut.isError && <div style={{ color:'var(--danger)', fontSize:12, marginBottom:8 }}>{saveMut.error?.error || 'Error saving'}</div>}
+      <div style={{ display:'flex', gap:8 }}>
+        <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending || !form.name || !form.email || !form.roleId || (!isEdit && !form.password)}>
+          {saveMut.isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create User'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── ROLES & PERMISSIONS ────────────────────────────────────
+function RolesTab() {
+  const qc = useQueryClient();
+  const { data: roles = [] } = useQuery({ queryKey:['roles'], queryFn: rolesApi.list });
+  const [activeRole, setActiveRole] = useState(null);
+
+  const permMut = useMutation({
+    mutationFn: ({ roleId, module, access }) => rolesApi.setPermission(roleId, { module, access }),
+    onSuccess: () => qc.invalidateQueries({ queryKey:['roles'] }),
+  });
+  const fieldMut = useMutation({
+    mutationFn: ({ roleId, fieldKey, visible }) => rolesApi.setFieldPerm(roleId, { fieldKey, visible }),
+    onSuccess: () => qc.invalidateQueries({ queryKey:['roles'] }),
+  });
+
+  const selected = activeRole ? roles.find(r => r.id === activeRole) : null;
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'200px 1fr', gap:16 }}>
+      {/* Role list */}
+      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+        <div style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:1.5, marginBottom:6, fontFamily:'var(--font-mono)' }}>Roles</div>
+        {roles.map(r => (
+          <button key={r.id} onClick={() => setActiveRole(r.id)}
+            style={{ textAlign:'left', background: activeRole===r.id ? 'rgba(0,229,160,0.1)':'var(--surface2)', border:`1px solid ${activeRole===r.id ? 'var(--accent)':'var(--border)'}`, borderRadius:8, padding:'8px 12px', cursor:'pointer', color: activeRole===r.id ? 'var(--accent)':'var(--text2)', fontSize:12, fontWeight: activeRole===r.id ? 700:400 }}>
+            {r.label}
+            <span style={{ display:'block', fontSize:10, color:'var(--muted)', fontWeight:400, marginTop:1 }}>{r._count?.users || 0} users</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Permission matrix */}
+      {!selected ? (
+        <div className="empty-state"><div className="empty-text">Select a role to configure permissions</div></div>
+      ) : (
+        <div>
+          <div style={{ fontWeight:700, fontSize:14, marginBottom:4 }}>{selected.label}</div>
+          <div style={{ fontSize:11.5, color:'var(--muted)', marginBottom:16 }}>{selected.description}</div>
+
+          <div className="modal-section">Module Access</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:20 }}>
+            {MODULES.map(mod => {
+              const perm = selected.permissions?.find(p => p.module === mod);
+              const current = perm?.access || 'NONE';
+              return (
+                <div key={mod} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'var(--surface2)', borderRadius:8, border:'1px solid var(--border)' }}>
+                  <span style={{ fontSize:12.5, color:'var(--text2)' }}>{MODULE_LABELS[mod]}</span>
+                  <div style={{ display:'flex', gap:4 }}>
+                    {ACCESS_LEVELS.map(level => (
+                      <button key={level} onClick={() => permMut.mutate({ roleId:selected.id, module:mod, access:level })}
+                        style={{ padding:'3px 10px', borderRadius:5, border:'1px solid var(--border)', fontSize:10.5, fontWeight:600, cursor:'pointer', background: current===level ? 'rgba(0,229,160,0.12)':'var(--surface)', color: current===level ? ACCESS_COLORS[level]:'var(--muted)', borderColor: current===level ? ACCESS_COLORS[level]:'var(--border)' }}>
+                        {level}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="modal-section">Sensitive Field Visibility</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            {FIELD_KEYS.map(({ key, label }) => {
+              const fp = selected.fieldPerms?.find(f => f.fieldKey === key);
+              const visible = fp?.visible ?? false;
+              return (
+                <div key={key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'var(--surface2)', borderRadius:8, border:'1px solid var(--border)' }}>
+                  <span style={{ fontSize:12.5, color:'var(--text2)' }}>{label}</span>
+                  <button onClick={() => fieldMut.mutate({ roleId:selected.id, fieldKey:key, visible:!visible })}
+                    style={{ padding:'3px 14px', borderRadius:5, border:'none', fontSize:11, fontWeight:700, cursor:'pointer', background: visible ? 'rgba(0,229,160,0.15)':'rgba(239,68,68,0.1)', color: visible ? 'var(--accent)':'var(--danger)' }}>
+                    {visible ? '✓ Visible' : '✕ Hidden'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
-      {skills.map(sk => (
-        <div key={sk.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          {editId === sk.id ? (
-            <div style={{ flex: 1 }}>
-              <div className="form-grid-2" style={{ marginBottom: 8 }}>
-                <input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} />
-                <input className="form-input" value={form.submods} onChange={e=>setForm(f=>({...f,submods:e.target.value}))} placeholder="comma-separated sub-modules" />
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-outline btn-xs" onClick={() => setEditId(null)}>Cancel</button>
-                <button className="btn btn-primary btn-xs" onClick={() => updateMut.mutate({ id: sk.id, data: { name: form.name, submods: form.submods.split(',').map(s=>s.trim()).filter(Boolean) } })}>Save</button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 5 }}>{sk.name}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                  {sk.submods.map(s => <span key={s} className="chip chip-gray" style={{ fontSize: 9.5 }}>{s}</span>)}
-                  <span style={{ fontSize: 10, color: 'var(--muted)', alignSelf: 'center' }}>{sk.submods.length} sub-modules</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                <button className="btn btn-outline btn-xs" onClick={() => startEdit(sk)}>Edit</button>
-                <button className="btn btn-danger btn-xs" onClick={() => { if(confirm(`Delete skill "${sk.name}"?`)) deleteMut.mutate(sk.id); }}>✕</button>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
+    </div>
+  );
+}
+
+// ── AUDIT LOG ──────────────────────────────────────────────
+function AuditTab() {
+  const [module, setModule] = useState('');
+  const [action, setAction] = useState('');
+
+  const { data } = useQuery({
+    queryKey: ['audit', module, action],
+    queryFn:  () => auditApi.list({ module: module||undefined, action: action||undefined, limit:100 }),
+  });
+
+  const logs = data?.logs || [];
+
+  const ACTION_COLORS = { CREATE:'badge-green', UPDATE:'badge-blue', DELETE:'badge-red', LOGIN:'badge-gray', LOGOUT:'badge-gray' };
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+        <select className="form-select" style={{ width:'auto' }} value={module} onChange={e => setModule(e.target.value)}>
+          <option value="">All Modules</option>
+          {MODULES.map(m => <option key={m} value={m}>{MODULE_LABELS[m]}</option>)}
+          <option value="auth">Auth</option>
+        </select>
+        <select className="form-select" style={{ width:'auto' }} value={action} onChange={e => setAction(e.target.value)}>
+          <option value="">All Actions</option>
+          {['CREATE','UPDATE','DELETE','LOGIN','LOGOUT'].map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </div>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Module</th><th>Record</th><th>IP</th></tr></thead>
+          <tbody>
+            {logs.map(l => (
+              <tr key={l.id}>
+                <td style={{ fontSize:11, color:'var(--muted)', whiteSpace:'nowrap' }}>{fmtDate(l.createdAt)}</td>
+                <td style={{ fontSize:11.5 }}>{l.userEmail || '—'}</td>
+                <td><span className={`badge ${ACTION_COLORS[l.action]}`}>{l.action}</span></td>
+                <td style={{ fontSize:11.5 }}>{l.module}</td>
+                <td style={{ fontSize:11.5, color:'var(--muted)' }}>{l.recordLabel || l.recordId || '—'}</td>
+                <td style={{ fontSize:10.5, color:'var(--muted)' }}>{l.ipAddress || '—'}</td>
+              </tr>
+            ))}
+            {logs.length === 0 && <tr><td colSpan={6} style={{ textAlign:'center', color:'var(--muted)', padding:24 }}>No audit logs found</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── SESSIONS ───────────────────────────────────────────────
+function SessionsTab() {
+  const qc = useQueryClient();
+  const { data: sessions = [] } = useQuery({ queryKey:['sessions'], queryFn: authApi.sessions });
+
+  const logoutAllMut = useMutation({
+    mutationFn: authApi.logoutAll,
+    onSuccess:  () => qc.invalidateQueries({ queryKey:['sessions'] }),
+  });
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+        <div style={{ fontSize:13, color:'var(--muted)' }}>{sessions.length} active session{sessions.length!==1?'s':''}</div>
+        <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm('Log out all sessions? You will need to sign in again.')) logoutAllMut.mutate(); }}>
+          Log Out All Sessions
+        </button>
+      </div>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead><tr><th>IP Address</th><th>Browser / Device</th><th>Created</th><th>Expires</th></tr></thead>
+          <tbody>
+            {sessions.map(s => (
+              <tr key={s.id}>
+                <td style={{ fontSize:12, fontFamily:'var(--font-mono)' }}>{s.ipAddress || '—'}</td>
+                <td style={{ fontSize:11.5, color:'var(--muted)', maxWidth:260 }}>{s.userAgent?.slice(0,80) || '—'}</td>
+                <td style={{ fontSize:11 }}>{fmtDate(s.createdAt)}</td>
+                <td style={{ fontSize:11, color:'var(--muted)' }}>{fmtDate(s.expiresAt)}</td>
+              </tr>
+            ))}
+            {sessions.length===0 && <tr><td colSpan={4} style={{ textAlign:'center', color:'var(--muted)', padding:24 }}>No active sessions</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

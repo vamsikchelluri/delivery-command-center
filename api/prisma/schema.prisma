@@ -222,6 +222,7 @@ model Project {
   clientContact String?
   deliveryMgr   String?
   accountMgr    String?
+  pmId          String?       // User with PM role
   notes         String?
   totalValue    Float?
   roles         Role[]
@@ -355,4 +356,110 @@ model OppRole {
   updatedAt       DateTime       @updatedAt
 
   @@index([opportunityId])
+}
+
+// ─────────────────────────────────────────
+//  AUTH & RBAC
+// ─────────────────────────────────────────
+
+enum AccessLevel {
+  FULL
+  READ
+  NONE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+model AppRole {
+  id          String       @id @default(cuid())
+  name        String       @unique  // COO, DELIVERY_MANAGER, etc.
+  label       String                // Display name
+  description String?
+  isSystem    Boolean      @default(false) // system roles can't be deleted
+  permissions Permission[]
+  fieldPerms  FieldPermission[]
+  users       User[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Permission {
+  id          String      @id @default(cuid())
+  role        AppRole     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId      String
+  module      String      // dashboard | resources | projects | pipeline | team | financials | settings
+  access      AccessLevel @default(NONE)
+
+  @@unique([roleId, module])
+}
+
+model FieldPermission {
+  id        String   @id @default(cuid())
+  role      AppRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId    String
+  fieldKey  String   // resource_cost | resource_rate | sow_billrate | sow_margin | pipeline_margin | payment_terms
+  visible   Boolean  @default(false)
+
+  @@unique([roleId, fieldKey])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          AppRole   @relation(fields: [roleId], references: [id])
+  roleId        String
+  active        Boolean   @default(true)
+  mustChangePwd Boolean   @default(false)
+  mfaEnabled    Boolean   @default(false)
+  mfaSecret     String?
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([roleId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  refreshToken String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([refreshToken])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  user        User?       @relation(fields: [userId], references: [id])
+  userId      String?
+  userEmail   String?     // snapshot in case user deleted
+  action      AuditAction
+  module      String
+  recordId    String?
+  recordLabel String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  createdAt   DateTime    @default(now())
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
 }

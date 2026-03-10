@@ -8,28 +8,32 @@ const helmet   = require('helmet');
 const morgan   = require('morgan');
 const path     = require('path');
 
+const { authenticate, requireAccess } = require('./middleware/auth');
 const app = express();
 
 // ── MIDDLEWARE ──
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
-  credentials: true,
-}));
+app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
 app.use(express.json());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// ── API ROUTES ──
-app.use('/api/resources',   require('./routes/resources'));
-app.use('/api/skills',      require('./routes/skills'));
-app.use('/api/currencies',  require('./routes/currencies'));
-app.use('/api/config',      require('./routes/config'));
-app.use('/api/projects',    require('./routes/projects'));
-app.use('/api/pipeline',    require('./routes/pipeline'));
-app.use('/api/team',        require('./routes/team'));
-app.use('/api/deployments', require('./routes/deployments'));
-app.use('/api/actuals',     require('./routes/actuals'));
-app.use('/api/dashboard',   require('./routes/dashboard'));
+// ── PUBLIC ROUTES (no auth) ──
+app.use('/api/auth', require('./routes/auth'));
+
+// ── PROTECTED ROUTES ──
+app.use('/api/resources',   authenticate, requireAccess('resources'),   require('./routes/resources'));
+app.use('/api/skills',      authenticate, require('./routes/skills'));
+app.use('/api/currencies',  authenticate, require('./routes/currencies'));
+app.use('/api/config',      authenticate, require('./routes/config'));
+app.use('/api/projects',    authenticate, requireAccess('projects'),    require('./routes/projects'));
+app.use('/api/pipeline',    authenticate, requireAccess('pipeline'),    require('./routes/pipeline'));
+app.use('/api/team',        authenticate, requireAccess('team'),        require('./routes/team'));
+app.use('/api/deployments', authenticate, require('./routes/deployments'));
+app.use('/api/actuals',     authenticate, require('./routes/actuals'));
+app.use('/api/dashboard',   authenticate, requireAccess('dashboard'),   require('./routes/dashboard'));
+app.use('/api/users',       authenticate, require('./routes/users'));
+app.use('/api/roles',       authenticate, require('./routes/roles'));
+app.use('/api/audit',       authenticate, require('./routes/audit'));
 
 // ── SERVE REACT CLIENT IN PRODUCTION ──
 if (process.env.NODE_ENV === 'production') {
@@ -42,16 +46,9 @@ if (process.env.NODE_ENV === 'production') {
 
 // ── ERROR HANDLER ──
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  const status = err.status || 500;
-  res.status(status).json({
-    error: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
-  });
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`\n🚀 DCC API running on port ${PORT}`);
-  console.log(`   ENV: ${process.env.NODE_ENV || 'development'}`);
-});
+app.listen(PORT, () => console.log(`DCC API running on :${PORT}`));
