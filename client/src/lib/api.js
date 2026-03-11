@@ -47,8 +47,11 @@ export const projectsApi = {
   delete:           (id)     => api.delete(`/projects/${id}`),
   addRole:          (projId, data) => api.post(`/projects/${projId}/roles`, data),
   updateRole:       (roleId, data) => api.patch(`/projects/roles/${roleId}`, data),
+  deleteRole:       (roleId)       => api.delete(`/projects/roles/${roleId}`),
   addMilestone:     (projId, data) => api.post(`/projects/${projId}/milestones`, data),
   updateMilestone:  (mid, data)    => api.patch(`/projects/milestones/${mid}`, data),
+  deleteMilestone:  (mid)          => api.delete(`/projects/milestones/${mid}`),
+  listUsers:        (params)       => api.get('/users', { params }),
 };
 
 export const pipelineApi = {

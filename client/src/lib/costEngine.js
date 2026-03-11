@@ -33,7 +33,10 @@ export function statusBadgeClass(status) {
     DEPLOYED:           'badge-green',
     PARTIALLY_DEPLOYED: 'badge-yellow',
     AVAILABLE:          'badge-blue',
-    ON_BENCH:           'badge-red',
+    ON_BENCH:           'badge-gray',
+    LONG_LEAVE:         'badge-purple',
+    VACATION:           'badge-purple',
+    NOTICE_PERIOD:      'badge-red',
     EXITED:             'badge-gray',
   }[status] || 'badge-gray';
 }
@@ -44,6 +47,9 @@ export function statusLabel(status) {
     PARTIALLY_DEPLOYED: 'Partial',
     AVAILABLE:          'Available',
     ON_BENCH:           'On Bench',
+    LONG_LEAVE:         'Long Leave',
+    VACATION:           'Vacation',
+    NOTICE_PERIOD:      'Notice Period',
     EXITED:             'Exited',
   }[status] || status;
 }

@@ -38,6 +38,9 @@ enum ResourceStatus {
   PARTIALLY_DEPLOYED
   AVAILABLE
   ON_BENCH
+  LONG_LEAVE
+  VACATION
+  NOTICE_PERIOD
   EXITED
 }
 
@@ -220,9 +223,12 @@ model Project {
   status        ProjectStatus @default(ACTIVE)
   clientRef     String?
   clientContact String?
-  deliveryMgr   String?
-  accountMgr    String?
-  pmId          String?       // User with PM role
+  pmUserId      String?       // User: PROJECT_MANAGER role
+  dmUserId      String?       // User: DELIVERY_MANAGER role
+  amUserId      String?       // User: ACCOUNT_MANAGER role
+  pm            User?         @relation("ProjectPM", fields: [pmUserId], references: [id])
+  dm            User?         @relation("ProjectDM", fields: [dmUserId], references: [id])
+  am            User?         @relation("ProjectAM", fields: [amUserId], references: [id])
   notes         String?
   totalValue    Float?
   roles         Role[]
@@ -426,6 +432,9 @@ model User {
 
   sessions      Session[]
   auditLogs     AuditLog[]
+  projectsPM    Project[]     @relation("ProjectPM")
+  projectsDM    Project[]     @relation("ProjectDM")
+  projectsAM    Project[]     @relation("ProjectAM")
 
   @@index([email])
   @@index([roleId])

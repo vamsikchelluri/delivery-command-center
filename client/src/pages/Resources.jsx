@@ -50,6 +50,8 @@ export default function Resources() {
           <select className="form-select" style={{ width:'auto' }} value={fStatus} onChange={e => setFStatus(e.target.value)}>
             <option value="">All Status</option><option value="DEPLOYED">Deployed</option><option value="PARTIALLY_DEPLOYED">Partial</option>
             <option value="AVAILABLE">Available</option><option value="ON_BENCH">On Bench</option>
+            <option value="LONG_LEAVE">Long Leave</option><option value="VACATION">Vacation</option>
+            <option value="NOTICE_PERIOD">Notice Period</option>
           </select>
           <button className="btn btn-primary" onClick={() => setView('add')}>+ Add Resource</button>
         </div>

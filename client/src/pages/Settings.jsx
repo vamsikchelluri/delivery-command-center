@@ -164,7 +164,7 @@ function UserForm({ user, roles, onClose, onSaved }) {
   const isEdit = !!user;
   const [form, setForm] = useState({
     name:         user?.name     || '',
-    email:        user?.email    || '',
+    email:        isEdit ? (user?.email || '') : '',
     roleId:       user?.roleId   || '',
     password:     '',
     mustChangePwd: user ? user.mustChangePwd : true,

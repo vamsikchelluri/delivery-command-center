@@ -58,8 +58,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -102,7 +102,7 @@ body::before {
 }
 
 .page-content {
-  margin-left: 228px;
+  margin-left: 192px;
   flex: 1;
   min-height: 100vh;
   display: flex;
@@ -157,9 +157,9 @@ body::before {
   gap: 5px;
   padding: 7px 14px;
   border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.14s;
   white-space: nowrap;
@@ -180,7 +180,7 @@ body::before {
 
 /* ── FORM ELEMENTS ── */
 .form-group   { margin-bottom: 11px; }
-.form-label   { display: block; font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; font-family: var(--font-mono); }
+.form-label   { display: block; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; font-family: var(--font-sans); font-weight: 600; }
 .form-input, .form-select, .form-textarea {
   width: 100%;
   background: var(--surface2);
@@ -188,8 +188,8 @@ body::before {
   border-radius: 8px;
   color: var(--text);
   padding: 8px 11px;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
   outline: none;
   transition: border-color 0.14s;
 }
@@ -217,8 +217,8 @@ body::before {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 20px;
-  font-size: 10px;
-  font-family: var(--font-mono);
+  font-size: 11px;
+  font-family: var(--font-sans);
   white-space: nowrap;
   line-height: 1.5;
 }
@@ -254,7 +254,7 @@ body::before {
 }
 .kpi:hover { transform: translateY(-2px); border-color: var(--border2); }
 .kpi::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--kpi-color, var(--accent)); }
-.kpi-label { font-size: 9.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; font-family: var(--font-mono); }
+.kpi-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; font-family: var(--font-sans); font-weight: 600; }
 .kpi-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 5px; }
 .kpi-delta { font-size: 10.5px; display: flex; align-items: center; gap: 3px; color: var(--muted); }
 .kpi-icon  { position: absolute; right: 13px; top: 13px; font-size: 17px; opacity: 0.08; }
@@ -262,23 +262,23 @@ body::before {
 /* ── TABLE ── */
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th {
-  font-size: 9.5px;
-  letter-spacing: 1.3px;
+  font-size: 11px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
-  padding: 9px 14px;
+  padding: 10px 14px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  font-weight: 400;
+  font-weight: 500;
   white-space: nowrap;
   background: var(--surface2);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 .data-table td {
-  padding: 10px 14px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--border);
   color: var(--text2);
-  font-size: 11.5px;
+  font-size: 13px;
   vertical-align: middle;
 }
 .data-table tr:last-child td { border-bottom: none; }
@@ -334,8 +334,8 @@ body::before {
   color: var(--text);
 }
 .modal-section {
-  font-size: 9px;
-  letter-spacing: 2px;
+  font-size: 11px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--accent);
   margin: 14px 0 8px;
@@ -358,14 +358,14 @@ body::before {
 }
 .tab {
   padding: 9px 15px;
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.14s;
   white-space: nowrap;
   flex-shrink: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 .tab:hover { color: var(--text2); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -412,8 +412,8 @@ body::before {
   margin-bottom: 18px;
   gap: 12px;
 }
-.section-title { font-size: 19px; font-weight: 700; color: var(--text); margin-bottom: 3px; line-height: 1.15; }
-.section-sub   { font-size: 11px; color: var(--muted); }
+.section-title { font-size: 21px; font-weight: 700; color: var(--text); margin-bottom: 3px; line-height: 1.15; }
+.section-sub   { font-size: 12.5px; color: var(--muted); }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 

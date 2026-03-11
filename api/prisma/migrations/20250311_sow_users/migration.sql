@@ -1,0 +1,4 @@
+-- Add new ResourceStatus enum values
+DO $$ BEGIN ALTER TYPE "ResourceStatus" ADD VALUE IF NOT EXISTS 'LONG_LEAVE'; EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN ALTER TYPE "ResourceStatus" ADD VALUE IF NOT EXISTS 'VACATION'; EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN ALTER TYPE "ResourceStatus" ADD VALUE IF NOT EXISTS 'NOTICE_PERIOD'; EXCEPTION WHEN others THEN null; END $$;
