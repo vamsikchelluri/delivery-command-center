@@ -1,26 +1,31 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { resourcesApi, pipelineApi } from '../../lib/api';
 
 const NAV = [
   { group: 'Overview', items: [
-    { to: '/dashboard', label: 'COO 360° View',    icon: '⊞' },
+    { to: '/dashboard', label: 'COO 360° View',  icon: '⊞' },
   ]},
   { group: 'Operations', items: [
-    { to: '/resources', label: 'Resources',         icon: '👥', countKey: 'resources' },
-    { to: '/projects',  label: 'Projects (SOW)',    icon: '📋', countKey: 'projects'  },
+    { to: '/resources', label: 'Resources',       icon: '👥', countKey: 'resources' },
+    { to: '/projects',  label: 'Projects (SOW)',  icon: '📋' },
   ]},
   { group: 'Growth', items: [
-    { to: '/pipeline',  label: 'Pipeline',          icon: '📡', countKey: 'pipeline' },
-    { to: '/team',      label: 'Team',              icon: '🤝' },
-    { to: '/financials',label: 'P&L / Financials',  icon: '$'  },
+    { to: '/pipeline',  label: 'Pipeline',        icon: '📡', countKey: 'pipeline' },
+    { to: '/team',      label: 'Team',            icon: '🤝' },
+  ]},
+  { group: 'Financials', items: [
+    { to: '/pl-report',  label: 'P&L Reports',   icon: '📊' },
+    { to: '/financials', label: 'Financials',     icon: '$'  },
   ]},
   { group: 'Admin', items: [
-    { to: '/settings',  label: 'Settings',          icon: '⚙' },
+    { to: '/settings',  label: 'Settings',        icon: '⚙' },
   ]},
 ];
 
 export default function Sidebar() {
+  const { user: authUser } = useAuth();
   const { data: resources } = useQuery({ queryKey: ['resources'], queryFn: () => resourcesApi.list() });
   const { data: pipeline  } = useQuery({ queryKey: ['pipeline'],  queryFn: () => pipelineApi.list({ stage: 'QUALIFYING' }).catch(() => []) });
 
@@ -31,7 +36,7 @@ export default function Sidebar() {
 
   return (
     <aside style={{
-      position: 'fixed', left: 0, top: 0, bottom: 0, width: 228,
+      position: 'fixed', left: 0, top: 0, bottom: 0, width: 192,
       background: 'var(--surface)', borderRight: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', zIndex: 100, overflowY: 'auto',
     }}>
@@ -40,7 +45,7 @@ export default function Sidebar() {
         <div style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>
           Command<br /><span style={{ color: 'var(--accent)' }}>Center</span>
         </div>
-        <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>v4.1 · Railway</div>
+        <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>v5.0 · Railway</div>
       </div>
 
       <nav style={{ flex: 1, paddingBottom: 12 }}>
@@ -74,10 +79,12 @@ export default function Sidebar() {
       </nav>
 
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 9 }}>
-        <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, var(--accent2), var(--accent))', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>SK</div>
+        <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, var(--accent2), var(--accent))', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+          {authUser ? authUser.name.split(' ').map(w => w[0]).slice(0, 2).join('') : '?'}
+        </div>
         <div>
-          <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 700 }}>S. Krishnan</div>
-          <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>COO · Delivery Head</div>
+          <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 700 }}>{authUser?.name || '—'}</div>
+          <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{authUser?.role?.label || 'User'}</div>
         </div>
       </div>
     </aside>

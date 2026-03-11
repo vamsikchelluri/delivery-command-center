@@ -11,6 +11,7 @@ import Projects  from './pages/Projects';
 import Pipeline  from './pages/Pipeline';
 import Team      from './pages/Team';
 import Financials from './pages/Financials';
+import PLReport   from './pages/PLReport';
 import Settings  from './pages/Settings';
 
 // Protected route wrapper
@@ -80,6 +81,7 @@ export default function App() {
               <Route path="/pipeline"      element={<Protected module="pipeline"><Pipeline /></Protected>} />
               <Route path="/team"          element={<Protected module="team"><Team /></Protected>} />
               <Route path="/financials"    element={<Protected module="financials"><Financials /></Protected>} />
+              <Route path="/pl-report"     element={<Protected module="financials"><PLReport /></Protected>} />
               <Route path="/settings"      element={<Protected module="settings"><Settings /></Protected>} />
               <Route path="*"              element={<Navigate to="/dashboard" replace />} />
             </Routes>

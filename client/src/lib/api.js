@@ -89,3 +89,8 @@ export const teamApi = {
   update: (id, d)  => api.patch(`/team/${id}`, d),
   delete: (id)     => api.delete(`/team/${id}`),
 };
+
+export const financialsApi = {
+  report:  (params) => api.get('/financials/pl-report',  { params }),
+  filters: ()       => api.get('/financials/pl-filters'),
+};
