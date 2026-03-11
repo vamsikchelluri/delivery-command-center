@@ -3,7 +3,6 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { financialsApi } from '../lib/api';
 import { fmtUSD } from '../lib/costEngine';
-import { exportPLtoExcel } from '../lib/excelExport';
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 const fmt  = (v, dec=2) => v == null ? '—' : `$${Number(v).toFixed(dec)}`;
