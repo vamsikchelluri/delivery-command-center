@@ -38,6 +38,7 @@ export function statusBadgeClass(status) {
     VACATION:           'badge-purple',
     NOTICE_PERIOD:      'badge-red',
     EXITED:             'badge-gray',
+    INACTIVE:           'badge-gray',
   }[status] || 'badge-gray';
 }
 
@@ -51,6 +52,7 @@ export function statusLabel(status) {
     VACATION:           'Vacation',
     NOTICE_PERIOD:      'Notice Period',
     EXITED:             'Exited',
+    INACTIVE:           'Inactive',
   }[status] || status;
 }
 

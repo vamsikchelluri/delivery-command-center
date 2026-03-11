@@ -37,7 +37,7 @@ function computeSOWPL(project, resources = []) {
   return { totalRevenue, totalCost, margin, marginPct, totalPlannedHrs, totalActualHrs, hoursUsedPct };
 }
 
-const STATUS_BADGE = { ACTIVE:'badge-green', DRAFT:'badge-gray', ON_HOLD:'badge-yellow', COMPLETED:'badge-blue', TERMINATED:'badge-red' };
+const STATUS_BADGE = { ACTIVE:'badge-green', DRAFT:'badge-gray', ON_HOLD:'badge-yellow', COMPLETED:'badge-blue', TERMINATED:'badge-red', INACTIVE:'badge-gray' };
 
 export default function Projects() {
   const qc = useQueryClient();
@@ -81,6 +81,7 @@ export default function Projects() {
           <select className="form-select" style={{ width:'auto' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="">All</option><option value="ACTIVE">Active</option><option value="DRAFT">Draft</option>
             <option value="COMPLETED">Completed</option><option value="ON_HOLD">On Hold</option>
+            <option value="INACTIVE">Inactive</option>
           </select>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New SOW</button>
         </div>
@@ -158,10 +159,6 @@ export default function Projects() {
                       <td onClick={e => e.stopPropagation()}>
                         <div style={{ display:'flex', gap:4 }}>
                           <button className="btn btn-accent btn-xs" onClick={() => openDetail(p)}>Open →</button>
-                          <button className="btn btn-danger btn-xs" onClick={() => {
-                            if (window.confirm(`Delete SOW "${p.name}"? This will also delete all roles, milestones and deployment records.`))
-                              deleteMut.mutate(p.id);
-                          }}>Del</button>
                         </div>
                       </td>
                     </tr>
@@ -232,9 +229,9 @@ function SOWDetail({ projectId, resources, onBack, onDeleted }) {
           <select className="form-select" style={{ width:'auto' }} value={project.status} onChange={e => updateMut.mutate({ status:e.target.value })}>
             <option value="DRAFT">Draft</option><option value="ACTIVE">Active</option>
             <option value="ON_HOLD">On Hold</option><option value="COMPLETED">Completed</option><option value="TERMINATED">Terminated</option>
+            <option value="INACTIVE">Inactive</option>
           </select>
           <button className="btn btn-outline btn-sm" onClick={() => setShowEdit(true)}>✎ Edit SOW</button>
-          <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm(`Delete "${project.name}"? All data will be lost.`)) deleteMut.mutate(); }}>🗑 Delete</button>
           <button className="btn btn-outline" onClick={onBack}>← Back</button>
         </div>
       </div>

@@ -193,8 +193,7 @@ router.post('/:id/convert', async (req, res) => {
         startDate:    opp.startDate || new Date(),
         endDate:      opp.endDate   || new Date(Date.now() + 90 * 86400000),
         status:       'DRAFT',
-        accountMgr:   null,
-        deliveryMgr:  null,
+        amUserId:     opp.accountManagerId || null,
         notes:        opp.notes,
         opportunityId: opp.id,
         roles: {

@@ -1,0 +1,7 @@
+-- Add new status values to enums (must be separate transaction)
+DO $$ BEGIN ALTER TYPE "PipelineStage" ADD VALUE IF NOT EXISTS 'ARCHIVED'; EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN ALTER TYPE "PipelineStage" ADD VALUE IF NOT EXISTS 'INACTIVE'; EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN ALTER TYPE "PipelineStage" ADD VALUE IF NOT EXISTS 'ON_HOLD'; EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN ALTER TYPE "ProjectStatus" ADD VALUE IF NOT EXISTS 'INACTIVE'; EXCEPTION WHEN others THEN null; END $$;
+
+DO $$ BEGIN ALTER TYPE "ResourceStatus" ADD VALUE IF NOT EXISTS 'INACTIVE'; EXCEPTION WHEN others THEN null; END $$;

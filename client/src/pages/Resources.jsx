@@ -52,6 +52,7 @@ export default function Resources() {
             <option value="AVAILABLE">Available</option><option value="ON_BENCH">On Bench</option>
             <option value="LONG_LEAVE">Long Leave</option><option value="VACATION">Vacation</option>
             <option value="NOTICE_PERIOD">Notice Period</option>
+            <option value="INACTIVE">Inactive</option>
           </select>
           <button className="btn btn-primary" onClick={() => setView('add')}>+ Add Resource</button>
         </div>

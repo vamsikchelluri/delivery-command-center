@@ -41,6 +41,7 @@ enum ResourceStatus {
   LONG_LEAVE
   VACATION
   NOTICE_PERIOD
+  INACTIVE
   EXITED
 }
 
@@ -60,6 +61,7 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   TERMINATED
+  INACTIVE
 }
 
 enum PipelineStage {
@@ -68,6 +70,9 @@ enum PipelineStage {
   NEGOTIATING
   WON
   LOST
+  ARCHIVED
+  INACTIVE
+  ON_HOLD
 }
 
 enum PersonRole {
