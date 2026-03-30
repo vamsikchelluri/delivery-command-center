@@ -334,3 +334,120 @@ model OppRole {
   durationMonths Int        @default(6)
   hoursPerMonth Int         @default(168)
 }
+
+// ─────────────────────────────────────────
+//  AUTH & RBAC
+// ─────────────────────────────────────────
+
+enum AccessLevel {
+  FULL
+  READ
+  NONE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+model AppRole {
+  id          String            @id @default(cuid())
+  name        String            @unique
+  label       String
+  description String?
+  isSystem    Boolean           @default(false)
+  permissions Permission[]
+  fieldPerms  FieldPermission[]
+  users       User[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model Permission {
+  id      String     @id @default(cuid())
+  role    AppRole    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId  String
+  module  String
+  access  AccessLevel @default(NONE)
+
+  @@unique([roleId, module])
+}
+
+model FieldPermission {
+  id       String  @id @default(cuid())
+  role     AppRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId   String
+  fieldKey String
+  visible  Boolean @default(false)
+
+  @@unique([roleId, fieldKey])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          AppRole   @relation(fields: [roleId], references: [id])
+  roleId        String
+  active        Boolean   @default(true)
+  mustChangePwd Boolean   @default(false)
+  mfaEnabled    Boolean   @default(false)
+  mfaSecret     String?
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([roleId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  refreshToken String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([refreshToken])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  user        User?       @relation(fields: [userId], references: [id])
+  userId      String?
+  userEmail   String?
+  action      AuditAction
+  module      String
+  recordId    String?
+  recordLabel String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  createdAt   DateTime    @default(now())
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  email     String?
+  phone     String?
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
