@@ -1,5 +1,6 @@
 [build]
-buildCommand = "npm install && cd client && npm install && npm run build && cd ../api && npm install && npx prisma generate"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 restartPolicyType = "ON_FAILURE"
