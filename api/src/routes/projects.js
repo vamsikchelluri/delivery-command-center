@@ -2,6 +2,7 @@
 const router = require('express').Router();
 const prisma  = require('../lib/prisma');
 
+// Build include - try to include pm/dm/am if columns exist
 const PROJECT_INCLUDE = {
   roles: {
     include: {
@@ -16,37 +17,52 @@ const PROJECT_INCLUDE = {
   milestones: { orderBy: { plannedDate: 'asc' } },
   addendums:  { select: { id:true, name:true, sowNumber:true, status:true } },
   parent:     { select: { id:true, name:true, sowNumber:true } },
-  pm:         { select: { id:true, name:true, email:true } },
-  dm:         { select: { id:true, name:true, email:true } },
-  am:         { select: { id:true, name:true, email:true } },
 };
+
+// Safely try to include pm/dm/am — these columns may not exist yet
+async function getProjectInclude() {
+  try {
+    // Test if pmUserId column exists
+    await prisma.$queryRaw`SELECT "pmUserId" FROM "Project" LIMIT 1`;
+    return {
+      ...PROJECT_INCLUDE,
+      pm: { select: { id:true, name:true, email:true } },
+      dm: { select: { id:true, name:true, email:true } },
+      am: { select: { id:true, name:true, email:true } },
+    };
+  } catch {
+    return PROJECT_INCLUDE;
+  }
+}
 
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
 
 router.get('/', async (req, res) => {
   const { status, client } = req.query;
+  const include = await getProjectInclude();
   const projects = await prisma.project.findMany({
     where: {
       ...(status ? { status } : {}),
       ...(client ? { client: { contains: client, mode: 'insensitive' } } : {}),
       parentId: null,
     },
-    include: PROJECT_INCLUDE,
+    include,
     orderBy: { startDate: 'desc' },
   });
   res.json(projects);
 });
 
 router.get('/:id', async (req, res) => {
-  const p = await prisma.project.findUniqueOrThrow({
-    where:   { id: req.params.id },
-    include: PROJECT_INCLUDE,
-  });
+  const include = await getProjectInclude();
+  const p = await prisma.project.findUniqueOrThrow({ where: { id: req.params.id }, include });
   res.json(p);
 });
 
 router.post('/', async (req, res) => {
   const d = req.body;
+  const include = await getProjectInclude();
+  const hasPmCol = 'pm' in include;
+
   const project = await prisma.project.create({
     data: {
       client:        d.client,
@@ -59,20 +75,25 @@ router.post('/', async (req, res) => {
       status:        d.status        || 'ACTIVE',
       clientRef:     d.clientRef     || null,
       clientContact: d.clientContact || null,
-      pmUserId:      d.pmUserId      || null,
-      dmUserId:      d.dmUserId      || null,
-      amUserId:      d.amUserId      || null,
+      ...(hasPmCol && {
+        pmUserId: d.pmUserId || null,
+        dmUserId: d.dmUserId || null,
+        amUserId: d.amUserId || null,
+      }),
       totalValue:    d.totalValue    ? parseFloat(d.totalValue) : null,
       parentId:      d.parentId      || null,
       notes:         d.notes         || null,
     },
-    include: PROJECT_INCLUDE,
+    include,
   });
   res.status(201).json(project);
 });
 
 router.patch('/:id', async (req, res) => {
   const d = req.body;
+  const include = await getProjectInclude();
+  const hasPmCol = 'pm' in include;
+
   const project = await prisma.project.update({
     where: { id: req.params.id },
     data: {
@@ -86,22 +107,19 @@ router.patch('/:id', async (req, res) => {
       ...(d.endDate       != null && { endDate:       new Date(d.endDate) }),
       ...(d.clientRef     !== undefined && { clientRef:     d.clientRef     || null }),
       ...(d.clientContact !== undefined && { clientContact: d.clientContact || null }),
-      ...(d.pmUserId      !== undefined && { pmUserId:      d.pmUserId      || null }),
-      ...(d.dmUserId      !== undefined && { dmUserId:      d.dmUserId      || null }),
-      ...(d.amUserId      !== undefined && { amUserId:      d.amUserId      || null }),
-      ...(d.totalValue    !== undefined && { totalValue:    d.totalValue ? parseFloat(d.totalValue) : null }),
-      ...(d.notes         !== undefined && { notes:         d.notes || null }),
+      ...(hasPmCol && d.pmUserId !== undefined && { pmUserId: d.pmUserId || null }),
+      ...(hasPmCol && d.dmUserId !== undefined && { dmUserId: d.dmUserId || null }),
+      ...(hasPmCol && d.amUserId !== undefined && { amUserId: d.amUserId || null }),
+      ...(d.totalValue    !== undefined && { totalValue: d.totalValue ? parseFloat(d.totalValue) : null }),
+      ...(d.notes         !== undefined && { notes:      d.notes || null }),
     },
-    include: PROJECT_INCLUDE,
+    include,
   });
   res.json(project);
 });
 
 router.delete('/:id', async (req, res) => {
-  await prisma.project.update({
-    where: { id: req.params.id },
-    data:  { status: 'TERMINATED' },
-  });
+  await prisma.project.update({ where: { id: req.params.id }, data: { status: 'TERMINATED' } });
   res.json({ ok: true });
 });
 

@@ -1,6 +1,7 @@
 // src/components/layout/Sidebar.jsx
 import { NavLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext';
 import { resourcesApi } from '../../lib/api';
 
 const NAV = [
@@ -22,8 +23,12 @@ const NAV = [
 ];
 
 export default function Sidebar() {
+  const { user } = useAuth();
   const { data: resources } = useQuery({ queryKey: ['resources'], queryFn: () => resourcesApi.list() });
   const counts = { resources: resources?.length || 0 };
+
+  // Get initials from logged-in user
+  const initials = user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
 
   return (
     <aside style={{
@@ -69,11 +74,14 @@ export default function Sidebar() {
         ))}
       </nav>
 
+      {/* Footer — logged in user */}
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 9 }}>
-        <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, var(--accent2), var(--accent))', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>SK</div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 700 }}>S. Krishnan</div>
-          <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>COO · Delivery Head</div>
+        <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, var(--accent2), var(--accent))', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+          {initials}
+        </div>
+        <div style={{ overflow: 'hidden' }}>
+          <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || '—'}</div>
+          <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{user?.roleLabel || user?.role || '—'}</div>
         </div>
       </div>
     </aside>

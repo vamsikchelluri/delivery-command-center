@@ -231,7 +231,7 @@ function ResourceForm({ resource, skills, onBack, onSaved }) {
     if (!form.name)           { setStep(0); return alert('Name is required'); }
     if (!form.primarySkillId) { setStep(1); return alert('Primary skill is required'); }
     if (!form.costInput)      { setStep(3); return alert('Cost / rate is required'); }
-    saveMut.mutate({ ...form, secondarySkillIds: form.secondarySkills.map(ss => ss.skillId) });
+    saveMut.mutate(form);
   }
 
   return (
@@ -293,29 +293,40 @@ function ResourceForm({ resource, skills, onBack, onSaved }) {
               )}
               <div className="form-group">
                 <label className="form-label">Secondary Skills</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
                   {skills.filter(s => s.id !== form.primarySkillId).map(s => (
                     <span key={s.id} onClick={() => toggleSecSkill(s.id)}
-                      className={`chip ${form.secondarySkills.find(ss => ss.skillId === s.id) ? 'chip-blue' : 'chip-gray'}`}
+                      className={`chip ${form.secondarySkills.find(ss => ss.skillId === s.id) ? '' : 'chip-gray'}`}
                       style={{ cursor: 'pointer' }}>{s.name}</span>
                   ))}
                 </div>
-                {form.secondarySkills.map(ss => {
-                  const sk = skills.find(s => s.id === ss.skillId);
-                  if (!sk || !sk.submods?.length) return null;
-                  return (
-                    <div key={ss.skillId} style={{ marginBottom: 8 }}>
-                      <div className="form-label" style={{ marginBottom: 4 }}>{sk.name} — sub-modules</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                        {sk.submods.map(sub => (
-                          <span key={sub} onClick={() => toggleSecSubmod(ss.skillId, sub)}
-                            className={`chip chip-${ss.submods.includes(sub) ? 'purple' : 'gray'}`}
-                            style={{ cursor: 'pointer', fontSize: 10 }}>{sub}</span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+                {form.secondarySkills.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {form.secondarySkills.map(ss => {
+                      const sk = skills.find(s => s.id === ss.skillId);
+                      if (!sk) return null;
+                      return (
+                        <div key={ss.skillId} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--border)' }}>
+                          <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 8, color: 'var(--text2)' }}>
+                            {sk.name} sub-modules
+                            <span onClick={() => toggleSecSkill(sk.id)} style={{ float: 'right', cursor: 'pointer', color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>✕ Remove</span>
+                          </div>
+                          {sk.submods?.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {sk.submods.map(sub => (
+                                <span key={sub} onClick={() => toggleSecSubmod(ss.skillId, sub)}
+                                  className={`chip ${ss.submods.includes(sub) ? 'chip-purple' : 'chip-gray'}`}
+                                  style={{ cursor: 'pointer' }}>{sub}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>No sub-modules for this skill</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}

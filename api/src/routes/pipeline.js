@@ -2,6 +2,23 @@
 const router = require('express').Router();
 const prisma  = require('../lib/prisma');
 
+// DB PipelineStage enum: DISCOVERY | QUALIFIED | PROPOSAL | NEGOTIATION | WON | LOST
+// Map from UI stage names to DB enum values
+const STAGE_MAP = {
+  QUALIFYING:  'DISCOVERY',
+  PROPOSED:    'PROPOSAL',
+  NEGOTIATING: 'NEGOTIATION',
+  WON:         'WON',
+  LOST:        'LOST',
+  // passthrough for direct DB values
+  DISCOVERY:   'DISCOVERY',
+  QUALIFIED:   'QUALIFIED',
+  PROPOSAL:    'PROPOSAL',
+  NEGOTIATION: 'NEGOTIATION',
+};
+
+function toDBStage(s) { return STAGE_MAP[s] || 'DISCOVERY'; }
+
 const OPP_INCLUDE = {
   roles:   true,
   project: { select: { id:true, name:true, sowNumber:true } },
@@ -12,7 +29,7 @@ const OPP_INCLUDE = {
 router.get('/', async (req, res) => {
   const { stage } = req.query;
   const opps = await prisma.opportunity.findMany({
-    where:   stage ? { stage } : {},
+    where:   stage ? { stage: toDBStage(stage) } : {},
     include: OPP_INCLUDE,
     orderBy: { updatedAt: 'desc' },
   });
@@ -33,13 +50,13 @@ router.post('/', async (req, res) => {
     data: {
       client:           d.client,
       name:             d.name,
-      stage:            d.stage            || 'QUALIFYING',
-      probability:      d.probability      ?? 20,
+      stage:            toDBStage(d.stage || 'DISCOVERY'),
+      probability:      d.probability      != null ? parseInt(d.probability) : 20,
       source:           d.source           || null,
       accountManagerId: d.accountManagerId || null,
       startDate:        d.startDate        ? new Date(d.startDate) : null,
       endDate:          d.endDate          ? new Date(d.endDate)   : null,
-      targetMargin:     d.targetMargin     ? parseFloat(d.targetMargin) : 30,
+      targetMargin:     d.targetMargin     != null ? parseFloat(d.targetMargin) : 30,
       currency:         d.currency         || 'USD',
       notes:            d.notes            || null,
     },
@@ -55,7 +72,7 @@ router.patch('/:id', async (req, res) => {
     data: {
       ...(d.client           != null && { client:           d.client }),
       ...(d.name             != null && { name:             d.name }),
-      ...(d.stage            != null && { stage:            d.stage }),
+      ...(d.stage            != null && { stage:            toDBStage(d.stage) }),
       ...(d.probability      != null && { probability:      parseInt(d.probability) }),
       ...(d.source           !== undefined && { source:           d.source || null }),
       ...(d.accountManagerId !== undefined && { accountManagerId: d.accountManagerId || null }),
@@ -71,7 +88,6 @@ router.patch('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  // Soft delete — mark as LOST instead of destroying data
   const opp = await prisma.opportunity.update({
     where: { id: req.params.id },
     data:  { stage: 'LOST' },
@@ -144,19 +160,17 @@ router.post('/:id/convert', async (req, res) => {
     return res.status(400).json({ error: 'Already converted to SOW' });
   }
 
-  // Create project from opportunity
   const project = await prisma.project.create({
     data: {
-      client:       opp.client,
-      name:         opp.name,
-      sowType:      'TM',
-      currency:     opp.currency || 'USD',
-      startDate:    opp.startDate || new Date(),
-      endDate:      opp.endDate   || new Date(Date.now() + 365 * 86400000),
-      status:       'DRAFT',
+      client:        opp.client,
+      name:          opp.name,
+      sowType:       'TM',
+      currency:      opp.currency || 'USD',
+      startDate:     opp.startDate || new Date(),
+      endDate:       opp.endDate   || new Date(Date.now() + 365 * 86400000),
+      status:        'DRAFT',
       opportunityId: opp.id,
-      notes:        opp.notes || null,
-      // Create roles from opp roles
+      notes:         opp.notes || null,
       roles: opp.roles.length ? {
         create: opp.roles.map(r => ({
           title:       r.title,
@@ -169,7 +183,6 @@ router.post('/:id/convert', async (req, res) => {
     },
   });
 
-  // Mark opportunity as converted
   await prisma.opportunity.update({
     where: { id: opp.id },
     data:  { convertedAt: new Date(), stage: 'WON' },
