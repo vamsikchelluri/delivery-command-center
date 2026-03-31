@@ -19,7 +19,8 @@ RUN cd client && npm install && npm run build
 RUN cd api && npm install && npx prisma generate
 
 # Expose port
+WORKDIR /app/api
+
 EXPOSE 3000
 
-# Run migrations then start server
-CMD cd api && npx prisma migrate deploy && node src/index.js
+CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
