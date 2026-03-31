@@ -317,7 +317,6 @@ model Opportunity {
   name        String
   stage       PipelineStage @default(DISCOVERY)
   probability Int           @default(50)  // 0-100
-  closeDate   DateTime?
   source           String?       // EXISTING_ACCOUNT | REFERRAL | RFP | COLD_OUTREACH | PARTNER
   accountManagerId String?
   startDate        DateTime?
