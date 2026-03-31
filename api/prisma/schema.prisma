@@ -312,8 +312,7 @@ model Actual {
 // ─────────────────────────────────────────
 
 model Opportunity {
-  model Opportunity {
-  id               String        @id @default(cuid())
+   id               String        @id @default(cuid())
   client           String
   name             String
   stage            PipelineStage @default(DISCOVERY)
