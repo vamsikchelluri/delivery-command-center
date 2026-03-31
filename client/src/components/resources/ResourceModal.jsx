@@ -15,7 +15,7 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
   const inrRate = currencies.find(c => c.code === 'INR')?.rateVsUSD || 88;
 
   const [form, setForm] = useState({
-    name: '', empId: '', email: '', phone: '',
+    firstName: '', lastName: '', name: '', empId: '', email: '', phone: '',
     location: 'OFFSHORE', employmentType: 'FT_EMPLOYEE',
     joiningDate: '', contractStart: '', contractEnd: '',
     noticePeriod: '30', rolloffDate: '',
@@ -30,6 +30,8 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
   useEffect(() => {
     if (resource) {
       setForm({
+        firstName:      resource.name?.split(' ')[0] || '',
+        lastName:       resource.name?.split(' ').slice(1).join(' ') || '',
         name:           resource.name || '',
         empId:          resource.empId || '',
         email:          resource.email || '',
@@ -102,10 +104,11 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
   }
 
   function handleSave() {
-    if (!form.name)           { setStep(0); return alert('Name is required'); }
+    const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
+    if (!fullName) { setStep(0); return alert('First name is required'); }
     if (!form.primarySkillId) { setStep(1); return alert('Primary skill is required'); }
     if (!form.costInput)      { setStep(3); return alert('Cost / rate is required'); }
-    saveMut.mutate(form);
+    saveMut.mutate({ ...form, name: fullName });
   }
 
   const isOffshoreContractor = form.location === 'OFFSHORE' && (form.employmentType === 'CONTRACTOR' || form.employmentType === 'C2C');
@@ -129,7 +132,8 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
         {step === 0 && (
           <div>
             <div className="form-grid-2">
-              <div className="form-group"><label className="form-label">Full Name *</label><input className="form-input" value={form.name} onChange={e=>f('name',e.target.value)} placeholder="Ravi Kumar" /></div>
+              <div className="form-group"><label className="form-label">First Name *</label><input className="form-input" value={form.firstName} onChange={e=>f('firstName',e.target.value)} placeholder="Ravi" autoFocus /></div>
+              <div className="form-group"><label className="form-label">Last Name *</label><input className="form-input" value={form.lastName} onChange={e=>f('lastName',e.target.value)} placeholder="Kumar" /></div>
               <div className="form-group"><label className="form-label">Employee / Contractor ID</label><input className="form-input" value={form.empId} onChange={e=>f('empId',e.target.value)} placeholder="EMP-001" /></div>
             </div>
             <div className="form-grid-2">

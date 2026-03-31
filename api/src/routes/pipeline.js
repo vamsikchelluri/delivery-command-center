@@ -3,34 +3,40 @@ const router = require('express').Router();
 const prisma  = require('../lib/prisma');
 
 // DB PipelineStage enum: DISCOVERY | QUALIFIED | PROPOSAL | NEGOTIATION | WON | LOST
-// Map from UI stage names to DB enum values
 const STAGE_MAP = {
   QUALIFYING:  'DISCOVERY',
   PROPOSED:    'PROPOSAL',
   NEGOTIATING: 'NEGOTIATION',
   WON:         'WON',
   LOST:        'LOST',
-  // passthrough for direct DB values
   DISCOVERY:   'DISCOVERY',
   QUALIFIED:   'QUALIFIED',
   PROPOSAL:    'PROPOSAL',
   NEGOTIATION: 'NEGOTIATION',
 };
-
 function toDBStage(s) { return STAGE_MAP[s] || 'DISCOVERY'; }
 
-const OPP_INCLUDE = {
+// Check which optional columns exist
+let _hasNewCols = null;
+async function hasNewCols() {
+  if (_hasNewCols !== null) return _hasNewCols;
+  try {
+    await prisma.$queryRaw`SELECT "source" FROM "Opportunity" LIMIT 1`;
+    _hasNewCols = true;
+  } catch { _hasNewCols = false; }
+  return _hasNewCols;
+}
+
+const BASE_INCLUDE = {
   roles:   true,
   project: { select: { id:true, name:true, sowNumber:true } },
 };
-
-// ── OPPORTUNITIES ─────────────────────────────────────────────────────────────
 
 router.get('/', async (req, res) => {
   const { stage } = req.query;
   const opps = await prisma.opportunity.findMany({
     where:   stage ? { stage: toDBStage(stage) } : {},
-    include: OPP_INCLUDE,
+    include: BASE_INCLUDE,
     orderBy: { updatedAt: 'desc' },
   });
   res.json(opps);
@@ -39,107 +45,111 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const opp = await prisma.opportunity.findUniqueOrThrow({
     where:   { id: req.params.id },
-    include: OPP_INCLUDE,
+    include: BASE_INCLUDE,
   });
   res.json(opp);
 });
 
 router.post('/', async (req, res) => {
   const d = req.body;
-  const opp = await prisma.opportunity.create({
-    data: {
-      client:           d.client,
-      name:             d.name,
-      stage:            toDBStage(d.stage || 'DISCOVERY'),
-      probability:      d.probability      != null ? parseInt(d.probability) : 20,
+  const newCols = await hasNewCols();
+
+  const data = {
+    client:      d.client,
+    name:        d.name,
+    stage:       toDBStage(d.stage || 'DISCOVERY'),
+    probability: d.probability != null ? parseInt(d.probability) : 20,
+    notes:       d.notes || null,
+    ...(newCols && {
       source:           d.source           || null,
       accountManagerId: d.accountManagerId || null,
       startDate:        d.startDate        ? new Date(d.startDate) : null,
       endDate:          d.endDate          ? new Date(d.endDate)   : null,
       targetMargin:     d.targetMargin     != null ? parseFloat(d.targetMargin) : 30,
       currency:         d.currency         || 'USD',
-      notes:            d.notes            || null,
-    },
-    include: OPP_INCLUDE,
-  });
+    }),
+  };
+
+  const opp = await prisma.opportunity.create({ data, include: BASE_INCLUDE });
   res.status(201).json(opp);
 });
 
 router.patch('/:id', async (req, res) => {
   const d = req.body;
+  const newCols = await hasNewCols();
+
+  const data = {
+    ...(d.client      != null && { client:      d.client }),
+    ...(d.name        != null && { name:        d.name }),
+    ...(d.stage       != null && { stage:       toDBStage(d.stage) }),
+    ...(d.probability != null && { probability: parseInt(d.probability) }),
+    ...(d.notes       !== undefined && { notes: d.notes || null }),
+    ...(newCols && d.source           !== undefined && { source:           d.source || null }),
+    ...(newCols && d.accountManagerId !== undefined && { accountManagerId: d.accountManagerId || null }),
+    ...(newCols && d.startDate        != null && { startDate:   new Date(d.startDate) }),
+    ...(newCols && d.endDate          != null && { endDate:     new Date(d.endDate) }),
+    ...(newCols && d.targetMargin     != null && { targetMargin: parseFloat(d.targetMargin) }),
+    ...(newCols && d.currency         != null && { currency:    d.currency }),
+  };
+
   const opp = await prisma.opportunity.update({
     where: { id: req.params.id },
-    data: {
-      ...(d.client           != null && { client:           d.client }),
-      ...(d.name             != null && { name:             d.name }),
-      ...(d.stage            != null && { stage:            toDBStage(d.stage) }),
-      ...(d.probability      != null && { probability:      parseInt(d.probability) }),
-      ...(d.source           !== undefined && { source:           d.source || null }),
-      ...(d.accountManagerId !== undefined && { accountManagerId: d.accountManagerId || null }),
-      ...(d.startDate        != null && { startDate:        new Date(d.startDate) }),
-      ...(d.endDate          != null && { endDate:          new Date(d.endDate) }),
-      ...(d.targetMargin     != null && { targetMargin:     parseFloat(d.targetMargin) }),
-      ...(d.currency         != null && { currency:         d.currency }),
-      ...(d.notes            !== undefined && { notes:            d.notes || null }),
-    },
-    include: OPP_INCLUDE,
+    data,
+    include: BASE_INCLUDE,
   });
   res.json(opp);
 });
 
 router.delete('/:id', async (req, res) => {
-  const opp = await prisma.opportunity.update({
-    where: { id: req.params.id },
-    data:  { stage: 'LOST' },
-  });
-  res.json(opp);
+  await prisma.opportunity.update({ where: { id: req.params.id }, data: { stage: 'LOST' } });
+  res.json({ ok: true });
 });
 
 // ── OPP ROLES ─────────────────────────────────────────────────────────────────
 
 router.post('/:id/roles', async (req, res) => {
   const d = req.body;
-  const role = await prisma.oppRole.create({
-    data: {
-      opportunityId:   req.params.id,
-      title:           d.title,
+  const newCols = await hasNewCols();
+
+  const data = {
+    opportunityId: req.params.id,
+    title:         d.title,
+    billRate:      d.billRate ? parseFloat(d.billRate) : null,
+    ...(newCols && {
       location:        d.location        || 'OFFSHORE',
       ftPt:            d.ftPt            || 'FT',
       experienceLevel: d.experienceLevel || null,
       yearsExp:        d.yearsExp        ? parseInt(d.yearsExp) : null,
       totalHours:      d.totalHours      ? parseFloat(d.totalHours) : null,
-      billRate:        d.billRate        ? parseFloat(d.billRate) : null,
       costGuidance:    d.costGuidance    ? parseFloat(d.costGuidance) : null,
       costOverride:    d.costOverride    || false,
       status:          d.status          || 'OPEN',
       resourceId:      d.resourceId      || null,
       resourceName:    d.resourceName    || null,
       notes:           d.notes           || null,
-    },
-  });
+    }),
+  };
+
+  const role = await prisma.oppRole.create({ data });
   res.status(201).json(role);
 });
 
 router.patch('/roles/:roleId', async (req, res) => {
   const d = req.body;
-  const role = await prisma.oppRole.update({
-    where: { id: req.params.roleId },
-    data: {
-      ...(d.title           != null && { title:           d.title }),
-      ...(d.location        != null && { location:        d.location }),
-      ...(d.ftPt            != null && { ftPt:            d.ftPt }),
-      ...(d.experienceLevel !== undefined && { experienceLevel: d.experienceLevel || null }),
-      ...(d.yearsExp        !== undefined && { yearsExp:        d.yearsExp ? parseInt(d.yearsExp) : null }),
-      ...(d.totalHours      !== undefined && { totalHours:      d.totalHours ? parseFloat(d.totalHours) : null }),
-      ...(d.billRate        !== undefined && { billRate:        d.billRate ? parseFloat(d.billRate) : null }),
-      ...(d.costGuidance    !== undefined && { costGuidance:    d.costGuidance ? parseFloat(d.costGuidance) : null }),
-      ...(d.costOverride    !== undefined && { costOverride:    d.costOverride }),
-      ...(d.status          != null && { status:          d.status }),
-      ...(d.resourceId      !== undefined && { resourceId:      d.resourceId || null }),
-      ...(d.resourceName    !== undefined && { resourceName:    d.resourceName || null }),
-      ...(d.notes           !== undefined && { notes:           d.notes || null }),
-    },
-  });
+  const newCols = await hasNewCols();
+
+  const data = {
+    ...(d.title    != null && { title:    d.title }),
+    ...(d.billRate !== undefined && { billRate: d.billRate ? parseFloat(d.billRate) : null }),
+    ...(newCols && d.status        != null && { status:        d.status }),
+    ...(newCols && d.location      != null && { location:      d.location }),
+    ...(newCols && d.totalHours    !== undefined && { totalHours: d.totalHours ? parseFloat(d.totalHours) : null }),
+    ...(newCols && d.costGuidance  !== undefined && { costGuidance: d.costGuidance ? parseFloat(d.costGuidance) : null }),
+    ...(newCols && d.resourceId    !== undefined && { resourceId: d.resourceId || null }),
+    ...(newCols && d.notes         !== undefined && { notes: d.notes || null }),
+  };
+
+  const role = await prisma.oppRole.update({ where: { id: req.params.roleId }, data });
   res.json(role);
 });
 
@@ -156,37 +166,44 @@ router.post('/:id/convert', async (req, res) => {
     include: { roles: true },
   });
 
-  if (opp.project) {
-    return res.status(400).json({ error: 'Already converted to SOW' });
-  }
+  if (opp.project) return res.status(400).json({ error: 'Already converted to SOW' });
+
+  const newCols = await hasNewCols();
 
   const project = await prisma.project.create({
     data: {
       client:        opp.client,
       name:          opp.name,
       sowType:       'TM',
-      currency:      opp.currency || 'USD',
-      startDate:     opp.startDate || new Date(),
-      endDate:       opp.endDate   || new Date(Date.now() + 365 * 86400000),
+      currency:      (newCols && opp.currency) || 'USD',
+      startDate:     (newCols && opp.startDate) || new Date(),
+      endDate:       (newCols && opp.endDate)   || new Date(Date.now() + 365 * 86400000),
       status:        'DRAFT',
       opportunityId: opp.id,
       notes:         opp.notes || null,
       roles: opp.roles.length ? {
         create: opp.roles.map(r => ({
           title:       r.title,
-          billRate:    r.billRate   || null,
+          billRate:    r.billRate || null,
           billingType: 'TM',
-          planStart:   opp.startDate || new Date(),
-          planEnd:     opp.endDate   || new Date(Date.now() + 365 * 86400000),
+          planStart:   (newCols && opp.startDate) || new Date(),
+          planEnd:     (newCols && opp.endDate)   || new Date(Date.now() + 365 * 86400000),
         })),
       } : undefined,
     },
   });
 
-  await prisma.opportunity.update({
-    where: { id: opp.id },
-    data:  { convertedAt: new Date(), stage: 'WON' },
-  });
+  if (newCols) {
+    await prisma.opportunity.update({
+      where: { id: opp.id },
+      data:  { convertedAt: new Date(), stage: 'WON' },
+    });
+  } else {
+    await prisma.opportunity.update({
+      where: { id: opp.id },
+      data:  { stage: 'WON' },
+    });
+  }
 
   res.json(project);
 });
