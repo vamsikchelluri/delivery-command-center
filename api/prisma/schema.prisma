@@ -201,8 +201,6 @@ model Project {
   // Optional SOW metadata
   clientRef   String?       // client PO / reference number
   clientContact String?
-  deliveryMgr String?
-  accountMgr  String?
   notes       String?
 
   // Project team (links to User)
