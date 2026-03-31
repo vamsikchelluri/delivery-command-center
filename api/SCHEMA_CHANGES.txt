@@ -1,0 +1,10 @@
+In api/prisma/schema.prisma, make these two edits:
+
+1. In the Project model, after the line `pm  User? @relation("ProjectPM", ...)`, add:
+
+  pmResourceId  String?
+  pmResource    Resource? @relation("ProjectPMResource", fields: [pmResourceId], references: [id])
+
+2. In the Resource model, after the existing `deployments Deployment[]` line, add:
+
+  managedProjects Project[] @relation("ProjectPMResource")

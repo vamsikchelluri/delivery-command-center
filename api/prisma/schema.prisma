@@ -205,6 +205,14 @@ model Project {
   accountMgr  String?
   notes       String?
 
+  // Project team (links to User)
+  pmUserId    String?       // Project Manager
+  amUserId    String?       // Account Manager
+  dmUserId    String?       // Delivery Manager
+  pm          User?         @relation("ProjectPM", fields: [pmUserId], references: [id])
+  am          User?         @relation("ProjectAM", fields: [amUserId], references: [id])
+  dm          User?         @relation("ProjectDM", fields: [dmUserId], references: [id])
+
   // For fixed price — NTE cap for T&M or total contract value
   totalValue  Float?
 
@@ -312,9 +320,16 @@ model Opportunity {
   stage       PipelineStage @default(DISCOVERY)
   probability Int           @default(50)  // 0-100
   closeDate   DateTime?
-  owner       String?
-  notes       String?
-  roles       OppRole[]
+  source           String?       // EXISTING_ACCOUNT | REFERRAL | RFP | COLD_OUTREACH | PARTNER
+  accountManagerId String?
+  startDate        DateTime?
+  endDate          DateTime?
+  targetMargin     Float         @default(30)
+  currency         String        @default("USD")
+  convertedAt      DateTime?
+  owner            String?
+  notes            String?
+  roles            OppRole[]
   project     Project?      // set when converted to SOW
 
   createdAt   DateTime      @default(now())
@@ -324,15 +339,27 @@ model Opportunity {
 }
 
 model OppRole {
-  id            String      @id @default(cuid())
-  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  opportunityId String
-  title         String
-  skillId       String?
-  billRate      Float?      // USD/hr
-  estStartDate  DateTime?
-  durationMonths Int        @default(6)
-  hoursPerMonth Int         @default(168)
+  id               String      @id @default(cuid())
+  opportunity      Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId    String
+  title            String
+  location         String      @default("OFFSHORE")  // OFFSHORE | ONSITE
+  ftPt             String      @default("FT")         // FT | PT | CONTRACT
+  experienceLevel  String?     // JUNIOR | MEDIUM | SENIOR
+  yearsExp         Int?
+  totalHours       Float?      // planned hours for engagement
+  billRate         Float?      // USD/hr
+  costGuidance     Float?      // USD/hr cost target
+  costOverride     Boolean     @default(false)
+  status           String      @default("OPEN") // OPEN | IDENTIFIED | CONFIRMED
+  resourceId       String?     // link to Resource if identified
+  resourceName     String?     // free text if not in roster
+  notes            String?
+  // Legacy fields kept for compatibility
+  skillId          String?
+  estStartDate     DateTime?
+  durationMonths   Int         @default(6)
+  hoursPerMonth    Int         @default(168)
 }
 
 // ─────────────────────────────────────────
@@ -402,6 +429,9 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   auditLogs     AuditLog[]
+  projectsPM    Project[]  @relation("ProjectPM")
+  projectsDM    Project[]  @relation("ProjectDM")
+  projectsAM    Project[]  @relation("ProjectAM")
 
   @@index([email])
   @@index([roleId])

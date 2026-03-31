@@ -1,276 +1,190 @@
-// api/src/routes/projects.js — updated to support pmResourceId
+// api/src/routes/projects.js
 const router = require('express').Router();
 const prisma  = require('../lib/prisma');
 
 const PROJECT_INCLUDE = {
-  dm:         { select: { id:true, name:true } },
-  am:         { select: { id:true, name:true } },
-  pm:         { select: { id:true, name:true } },         // pmUserId → User (legacy)
-  pmResource: { select: { id:true, name:true,             // pmResourceId → Resource (new)
-    primarySkill: { select: { name:true } } } },
   roles: {
     include: {
       deployments: {
         include: {
-          resource: { select: { id:true, name:true, status:true,
-            primarySkill: { select: { name:true } } } },
-          actuals: { orderBy: { month: 'desc' } },
+          resource: { select: { id:true, name:true, empId:true, primarySkillId:true, primarySkill:true } },
+          actuals: true,
         },
-        orderBy: { startDate: 'asc' },
       },
     },
-    orderBy: { planStart: 'asc' },
   },
   milestones: { orderBy: { plannedDate: 'asc' } },
-  addendums:  { select: { id:true, name:true, status:true, totalValue:true } },
-  parent:     { select: { id:true, name:true } },
+  addendums:  { select: { id:true, name:true, sowNumber:true, status:true } },
+  parent:     { select: { id:true, name:true, sowNumber:true } },
+  pm:         { select: { id:true, name:true, email:true } },
+  dm:         { select: { id:true, name:true, email:true } },
+  am:         { select: { id:true, name:true, email:true } },
 };
 
-// ── LIST ─────────────────────────────────────────────────────────────────────
+// ── PROJECTS ──────────────────────────────────────────────────────────────────
+
 router.get('/', async (req, res) => {
-  try {
-    const { status, client, dmUserId, amUserId } = req.query;
-    const where = {};
-    if (status && status !== 'ALL') where.status = status;
-    if (client)   where.client   = { contains: client, mode: 'insensitive' };
-    if (dmUserId) where.dmUserId = dmUserId;
-    if (amUserId) where.amUserId = amUserId;
-
-    const projects = await prisma.project.findMany({
-      where,
-      include: {
-        dm:         { select: { id:true, name:true } },
-        am:         { select: { id:true, name:true } },
-        pmResource: { select: { id:true, name:true } },
-        roles: {
-          include: {
-            deployments: {
-              where:   { endDate: { gte: new Date() } },
-              include: { resource: { select: { id:true, name:true, status:true } } },
-              take: 5,
-            },
-          },
-        },
-        milestones: { orderBy: { plannedDate: 'asc' } },
-      },
-      orderBy: [{ client: 'asc' }, { name: 'asc' }],
-    });
-    res.json(projects);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
+  const { status, client } = req.query;
+  const projects = await prisma.project.findMany({
+    where: {
+      ...(status ? { status } : {}),
+      ...(client ? { client: { contains: client, mode: 'insensitive' } } : {}),
+      parentId: null,
+    },
+    include: PROJECT_INCLUDE,
+    orderBy: { startDate: 'desc' },
+  });
+  res.json(projects);
 });
 
-// ── GET ONE ───────────────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
-  try {
-    const project = await prisma.project.findUnique({
-      where:   { id: req.params.id },
-      include: PROJECT_INCLUDE,
-    });
-    if (!project) return res.status(404).json({ error: 'Not found' });
-    res.json(project);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  const p = await prisma.project.findUniqueOrThrow({
+    where:   { id: req.params.id },
+    include: PROJECT_INCLUDE,
+  });
+  res.json(p);
 });
 
-// ── CREATE ────────────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
-  try {
-    const {
-      client, name, sowNumber, sowType, currency,
-      startDate, endDate, status, clientRef, clientContact,
-      dmUserId, amUserId, pmUserId, pmResourceId,
-      notes, totalValue, parentId,
-    } = req.body;
-
-    const project = await prisma.project.create({
-      data: {
-        client, name, sowType, currency: currency || 'USD',
-        startDate:   new Date(startDate),
-        endDate:     new Date(endDate),
-        status:      status || 'DRAFT',
-        sowNumber:   sowNumber   || null,
-        clientRef:   clientRef   || null,
-        clientContact: clientContact || null,
-        dmUserId:    dmUserId    || null,
-        amUserId:    amUserId    || null,
-        pmUserId:    pmUserId    || null,
-        pmResourceId: pmResourceId || null,
-        notes:       notes       || null,
-        totalValue:  totalValue  ? parseFloat(totalValue) : null,
-        parentId:    parentId    || null,
-      },
-      include: PROJECT_INCLUDE,
-    });
-    res.status(201).json(project);
-  } catch (e) {
-    console.error(e);
-    res.status(400).json({ error: e.message });
-  }
+  const d = req.body;
+  const project = await prisma.project.create({
+    data: {
+      client:        d.client,
+      name:          d.name,
+      sowNumber:     d.sowNumber     || null,
+      sowType:       d.sowType,
+      currency:      d.currency      || 'USD',
+      startDate:     new Date(d.startDate),
+      endDate:       new Date(d.endDate),
+      status:        d.status        || 'ACTIVE',
+      clientRef:     d.clientRef     || null,
+      clientContact: d.clientContact || null,
+      pmUserId:      d.pmUserId      || null,
+      dmUserId:      d.dmUserId      || null,
+      amUserId:      d.amUserId      || null,
+      totalValue:    d.totalValue    ? parseFloat(d.totalValue) : null,
+      parentId:      d.parentId      || null,
+      notes:         d.notes         || null,
+    },
+    include: PROJECT_INCLUDE,
+  });
+  res.status(201).json(project);
 });
 
-// ── UPDATE ────────────────────────────────────────────────────────────────────
 router.patch('/:id', async (req, res) => {
-  try {
-    const {
-      client, name, sowNumber, sowType, currency,
-      startDate, endDate, status, clientRef, clientContact,
-      dmUserId, amUserId, pmUserId, pmResourceId,
-      notes, totalValue,
-    } = req.body;
-
-    const data = {};
-    if (client       !== undefined) data.client       = client;
-    if (name         !== undefined) data.name         = name;
-    if (sowNumber    !== undefined) data.sowNumber     = sowNumber    || null;
-    if (sowType      !== undefined) data.sowType       = sowType;
-    if (currency     !== undefined) data.currency      = currency;
-    if (startDate    !== undefined) data.startDate     = new Date(startDate);
-    if (endDate      !== undefined) data.endDate       = new Date(endDate);
-    if (status       !== undefined) data.status        = status;
-    if (clientRef    !== undefined) data.clientRef     = clientRef    || null;
-    if (clientContact !== undefined) data.clientContact = clientContact || null;
-    if (dmUserId     !== undefined) data.dmUserId      = dmUserId     || null;
-    if (amUserId     !== undefined) data.amUserId      = amUserId     || null;
-    if (pmUserId     !== undefined) data.pmUserId      = pmUserId     || null;
-    if (pmResourceId !== undefined) data.pmResourceId  = pmResourceId || null;
-    if (notes        !== undefined) data.notes         = notes        || null;
-    if (totalValue   !== undefined) data.totalValue    = totalValue ? parseFloat(totalValue) : null;
-
-    const project = await prisma.project.update({
-      where:   { id: req.params.id },
-      data,
-      include: PROJECT_INCLUDE,
-    });
-    res.json(project);
-  } catch (e) {
-    console.error(e);
-    res.status(400).json({ error: e.message });
-  }
+  const d = req.body;
+  const project = await prisma.project.update({
+    where: { id: req.params.id },
+    data: {
+      ...(d.client        != null && { client:        d.client }),
+      ...(d.name          != null && { name:          d.name }),
+      ...(d.sowNumber     !== undefined && { sowNumber:     d.sowNumber || null }),
+      ...(d.sowType       != null && { sowType:       d.sowType }),
+      ...(d.currency      != null && { currency:      d.currency }),
+      ...(d.status        != null && { status:        d.status }),
+      ...(d.startDate     != null && { startDate:     new Date(d.startDate) }),
+      ...(d.endDate       != null && { endDate:       new Date(d.endDate) }),
+      ...(d.clientRef     !== undefined && { clientRef:     d.clientRef     || null }),
+      ...(d.clientContact !== undefined && { clientContact: d.clientContact || null }),
+      ...(d.pmUserId      !== undefined && { pmUserId:      d.pmUserId      || null }),
+      ...(d.dmUserId      !== undefined && { dmUserId:      d.dmUserId      || null }),
+      ...(d.amUserId      !== undefined && { amUserId:      d.amUserId      || null }),
+      ...(d.totalValue    !== undefined && { totalValue:    d.totalValue ? parseFloat(d.totalValue) : null }),
+      ...(d.notes         !== undefined && { notes:         d.notes || null }),
+    },
+    include: PROJECT_INCLUDE,
+  });
+  res.json(project);
 });
 
-// ── STATUS CHANGE ─────────────────────────────────────────────────────────────
-router.patch('/:id/status', async (req, res) => {
-  try {
-    const { status } = req.body;
-    const project = await prisma.project.update({
-      where: { id: req.params.id },
-      data:  { status },
-      include: { dm: { select:{id:true,name:true} }, am: { select:{id:true,name:true} } },
-    });
-    res.json(project);
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+router.delete('/:id', async (req, res) => {
+  await prisma.project.update({
+    where: { id: req.params.id },
+    data:  { status: 'TERMINATED' },
+  });
+  res.json({ ok: true });
 });
 
 // ── ROLES ─────────────────────────────────────────────────────────────────────
+
 router.post('/:id/roles', async (req, res) => {
-  try {
-    const { title, skillId, billRate, billingType, fixedAmount, planStart, planEnd } = req.body;
-    const role = await prisma.role.create({
-      data: {
-        projectId:   req.params.id,
-        title,
-        skillId:     skillId     || null,
-        billRate:    billRate    ? parseFloat(billRate)    : null,
-        billingType: billingType || 'TM',
-        fixedAmount: fixedAmount ? parseFloat(fixedAmount) : null,
-        planStart:   new Date(planStart),
-        planEnd:     new Date(planEnd),
-      },
-    });
-    res.status(201).json(role);
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+  const d = req.body;
+  const role = await prisma.role.create({
+    data: {
+      projectId:   req.params.id,
+      title:       d.title,
+      skillId:     d.skillId    || null,
+      billRate:    d.billRate   ? parseFloat(d.billRate)   : null,
+      billingType: d.billingType || 'TM',
+      fixedAmount: d.fixedAmount ? parseFloat(d.fixedAmount) : null,
+      planStart:   new Date(d.planStart),
+      planEnd:     new Date(d.planEnd),
+    },
+    include: { deployments: { include: { resource: true, actuals: true } } },
+  });
+  res.status(201).json(role);
 });
 
 router.patch('/roles/:roleId', async (req, res) => {
-  try {
-    const { title, skillId, billRate, billingType, fixedAmount, planStart, planEnd } = req.body;
-    const data = {};
-    if (title       !== undefined) data.title       = title;
-    if (skillId     !== undefined) data.skillId     = skillId     || null;
-    if (billRate    !== undefined) data.billRate    = billRate    ? parseFloat(billRate)    : null;
-    if (billingType !== undefined) data.billingType = billingType;
-    if (fixedAmount !== undefined) data.fixedAmount = fixedAmount ? parseFloat(fixedAmount) : null;
-    if (planStart   !== undefined) data.planStart   = new Date(planStart);
-    if (planEnd     !== undefined) data.planEnd     = new Date(planEnd);
-    const role = await prisma.role.update({ where: { id: req.params.roleId }, data });
-    res.json(role);
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+  const d = req.body;
+  const role = await prisma.role.update({
+    where: { id: req.params.roleId },
+    data: {
+      ...(d.title       != null && { title:       d.title }),
+      ...(d.skillId     !== undefined && { skillId:     d.skillId || null }),
+      ...(d.billRate    !== undefined && { billRate:    d.billRate ? parseFloat(d.billRate) : null }),
+      ...(d.billingType != null && { billingType: d.billingType }),
+      ...(d.fixedAmount !== undefined && { fixedAmount: d.fixedAmount ? parseFloat(d.fixedAmount) : null }),
+      ...(d.planStart   != null && { planStart:   new Date(d.planStart) }),
+      ...(d.planEnd     != null && { planEnd:     new Date(d.planEnd) }),
+    },
+    include: { deployments: { include: { resource: true, actuals: true } } },
+  });
+  res.json(role);
 });
 
 router.delete('/roles/:roleId', async (req, res) => {
-  try {
-    await prisma.role.update({
-      where: { id: req.params.roleId },
-      data:  { title: `[REMOVED] ${(await prisma.role.findUnique({where:{id:req.params.roleId}}))?.title}` },
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+  await prisma.role.delete({ where: { id: req.params.roleId } });
+  res.json({ ok: true });
 });
 
 // ── MILESTONES ────────────────────────────────────────────────────────────────
+
 router.post('/:id/milestones', async (req, res) => {
-  try {
-    const { name, plannedDate, plannedAmount, actualDate, actualAmount, invoiceDate, paymentDate, status } = req.body;
-    const ms = await prisma.milestone.create({
-      data: {
-        projectId:     req.params.id,
-        name,
-        plannedDate:   new Date(plannedDate),
-        plannedAmount: parseFloat(plannedAmount),
-        actualDate:    actualDate    ? new Date(actualDate)    : null,
-        actualAmount:  actualAmount  ? parseFloat(actualAmount) : null,
-        invoiceDate:   invoiceDate   ? new Date(invoiceDate)   : null,
-        paymentDate:   paymentDate   ? new Date(paymentDate)   : null,
-        status:        status        || 'UPCOMING',
-      },
-    });
-    res.status(201).json(ms);
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+  const d = req.body;
+  const m = await prisma.milestone.create({
+    data: {
+      projectId:     req.params.id,
+      name:          d.name,
+      plannedDate:   new Date(d.plannedDate),
+      plannedAmount: parseFloat(d.plannedAmount),
+      status:        d.status || 'UPCOMING',
+    },
+  });
+  res.status(201).json(m);
 });
 
 router.patch('/milestones/:mid', async (req, res) => {
-  try {
-    const { name, plannedDate, plannedAmount, actualDate, actualAmount, invoiceDate, paymentDate, status } = req.body;
-    const data = {};
-    if (name          !== undefined) data.name          = name;
-    if (plannedDate   !== undefined) data.plannedDate   = new Date(plannedDate);
-    if (plannedAmount !== undefined) data.plannedAmount = parseFloat(plannedAmount);
-    if (actualDate    !== undefined) data.actualDate    = actualDate    ? new Date(actualDate)    : null;
-    if (actualAmount  !== undefined) data.actualAmount  = actualAmount  ? parseFloat(actualAmount) : null;
-    if (invoiceDate   !== undefined) data.invoiceDate   = invoiceDate   ? new Date(invoiceDate)   : null;
-    if (paymentDate   !== undefined) data.paymentDate   = paymentDate   ? new Date(paymentDate)   : null;
-    if (status        !== undefined) data.status        = status;
-    const ms = await prisma.milestone.update({ where: { id: req.params.mid }, data });
-    res.json(ms);
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+  const d = req.body;
+  const m = await prisma.milestone.update({
+    where: { id: req.params.mid },
+    data: {
+      ...(d.name          != null && { name:          d.name }),
+      ...(d.plannedDate   != null && { plannedDate:   new Date(d.plannedDate) }),
+      ...(d.plannedAmount != null && { plannedAmount: parseFloat(d.plannedAmount) }),
+      ...(d.actualDate    != null && { actualDate:    new Date(d.actualDate) }),
+      ...(d.actualAmount  !== undefined && { actualAmount: d.actualAmount ? parseFloat(d.actualAmount) : null }),
+      ...(d.invoiceDate   != null && { invoiceDate:   new Date(d.invoiceDate) }),
+      ...(d.paymentDate   != null && { paymentDate:   new Date(d.paymentDate) }),
+      ...(d.status        != null && { status:        d.status }),
+    },
+  });
+  res.json(m);
 });
 
 router.delete('/milestones/:mid', async (req, res) => {
-  try {
-    await prisma.milestone.update({
-      where: { id: req.params.mid },
-      data:  { status: 'REMOVED' },
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+  await prisma.milestone.delete({ where: { id: req.params.mid } });
+  res.json({ ok: true });
 });
 
 module.exports = router;

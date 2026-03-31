@@ -6,6 +6,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+api.interceptors.request.use(cfg => {
+  const token = localStorage.getItem('dcc_access');
+  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  return cfg;
+});
+
 api.interceptors.response.use(
   r => r.data,
   err => Promise.reject(err.response?.data || err)
@@ -40,22 +46,29 @@ export const configApi = {
 };
 
 export const projectsApi = {
-  list:            (params)      => api.get('/projects', { params }),
-  get:             (id)          => api.get(`/projects/${id}`),
-  create:          (data)        => api.post('/projects', data),
-  update:          (id, d)       => api.patch(`/projects/${id}`, d),
-  delete:          (id)          => api.delete(`/projects/${id}`),
-  addRole:         (projId, data) => api.post(`/projects/${projId}/roles`, data),
-  updateRole:      (roleId, data) => api.patch(`/projects/roles/${roleId}`, data),
-  addMilestone:    (projId, data) => api.post(`/projects/${projId}/milestones`, data),
-  updateMilestone: (mid, data)    => api.patch(`/projects/milestones/${mid}`, data),
+  list:             (params)      => api.get('/projects', { params }),
+  get:              (id)          => api.get(`/projects/${id}`),
+  create:           (data)        => api.post('/projects', data),
+  update:           (id, d)       => api.patch(`/projects/${id}`, d),
+  delete:           (id)          => api.delete(`/projects/${id}`),
+  addRole:          (projId, data) => api.post(`/projects/${projId}/roles`, data),
+  updateRole:       (roleId, data) => api.patch(`/projects/roles/${roleId}`, data),
+  deleteRole:       (roleId)       => api.delete(`/projects/roles/${roleId}`),
+  addMilestone:     (projId, data) => api.post(`/projects/${projId}/milestones`, data),
+  updateMilestone:  (mid, data)    => api.patch(`/projects/milestones/${mid}`, data),
+  deleteMilestone:  (mid)          => api.delete(`/projects/milestones/${mid}`),
 };
 
 export const pipelineApi = {
-  list:   (params) => api.get('/pipeline', { params }),
-  create: (data)   => api.post('/pipeline', data),
-  update: (id, d)  => api.patch(`/pipeline/${id}`, d),
-  delete: (id)     => api.delete(`/pipeline/${id}`),
+  list:       (params)   => api.get('/pipeline', { params }),
+  get:        (id)       => api.get(`/pipeline/${id}`),
+  create:     (data)     => api.post('/pipeline', data),
+  update:     (id, d)    => api.patch(`/pipeline/${id}`, d),
+  delete:     (id)       => api.delete(`/pipeline/${id}`),
+  addRole:    (oppId, d) => api.post(`/pipeline/${oppId}/roles`, d),
+  updateRole: (rId, d)   => api.patch(`/pipeline/roles/${rId}`, d),
+  deleteRole: (rId)      => api.delete(`/pipeline/roles/${rId}`),
+  convert:    (id)       => api.post(`/pipeline/${id}/convert`),
 };
 
 export const teamApi = {
@@ -66,9 +79,9 @@ export const teamApi = {
 };
 
 export const deploymentsApi = {
-  create: (data)   => api.post('/deployments', data),
-  update: (id, d)  => api.patch(`/deployments/${id}`, d),
-  delete: (id)     => api.delete(`/deployments/${id}`),
+  create: (data)  => api.post('/deployments', data),
+  update: (id, d) => api.patch(`/deployments/${id}`, d),
+  delete: (id)    => api.delete(`/deployments/${id}`),
 };
 
 export const actualsApi = {
