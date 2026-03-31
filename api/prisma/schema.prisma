@@ -312,12 +312,13 @@ model Actual {
 // ─────────────────────────────────────────
 
 model Opportunity {
-  id          String        @id @default(cuid())
-  client      String
-  name        String
-  stage       PipelineStage @default(DISCOVERY)
-  probability Int           @default(50)  // 0-100
-  source           String?       // EXISTING_ACCOUNT | REFERRAL | RFP | COLD_OUTREACH | PARTNER
+  model Opportunity {
+  id               String        @id @default(cuid())
+  client           String
+  name             String
+  stage            PipelineStage @default(DISCOVERY)
+  probability      Int           @default(50)
+  source           String?
   accountManagerId String?
   startDate        DateTime?
   endDate          DateTime?
@@ -327,7 +328,7 @@ model Opportunity {
   owner            String?
   notes            String?
   roles            OppRole[]
-  project     Project?      // set when converted to SOW
+  project          Project?
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
