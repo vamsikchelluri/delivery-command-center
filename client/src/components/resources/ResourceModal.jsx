@@ -15,14 +15,13 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
   const inrRate = currencies.find(c => c.code === 'INR')?.rateVsUSD || 88;
 
   const [form, setForm] = useState({
-    firstName: '', lastName: '',
-    empId: '', email: '', phone: '',
+    name: '', empId: '', email: '', phone: '',
     location: 'OFFSHORE', employmentType: 'FT_EMPLOYEE',
     joiningDate: '', contractStart: '', contractEnd: '',
     noticePeriod: '30', rolloffDate: '',
     visaType: 'NA', visaExpiry: '', bgCheckStatus: 'NOT_REQUIRED',
     primarySkillId: '', primarySubmods: [],
-    secondarySkills: [],
+    secondarySkills: [], // [{ skillId, submods: [] }]
     costInput: '', rateCurrency: 'INR',
     paymentTerms: 'Monthly Payroll', payCurrency: 'INR',
     costChangeReason: 'Joining',
@@ -30,13 +29,8 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
 
   useEffect(() => {
     if (resource) {
-      // Split existing name into first/last
-      const parts = (resource.name || '').trim().split(' ');
-      const firstName = parts[0] || '';
-      const lastName  = parts.slice(1).join(' ') || '';
       setForm({
-        firstName,
-        lastName,
+        name:           resource.name || '',
         empId:          resource.empId || '',
         email:          resource.email || '',
         phone:          resource.phone || '',
@@ -69,19 +63,22 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
 
   const f = (key, val) => setForm(p => ({ ...p, [key]: val }));
 
-  const isEmployee = form.employmentType === 'FT_EMPLOYEE' || form.employmentType === 'PT_EMPLOYEE';
-  const isOffshoreContractor = form.location === 'OFFSHORE' && (form.employmentType === 'CONTRACTOR' || form.employmentType === 'C2C');
+  const isEmployee = form.location === 'OFFSHORE'
+    ? form.employmentType === 'FT_EMPLOYEE' || form.employmentType === 'PT_EMPLOYEE'
+    : form.employmentType === 'FT_EMPLOYEE' || form.employmentType === 'PT_EMPLOYEE';
 
+  // Compute cost preview
   const costPreview = form.costInput ? computeCostRate({
     location: form.location, empType: form.employmentType,
     inputValue: parseFloat(form.costInput) || 0,
-    inputCurrency: form.location === 'ONSITE' ? 'USD' : form.rateCurrency,
+    inputCurrency: form.rateCurrency,
     fxRate: inrRate,
     hrsYear: config.STANDARD_HOURS_YEAR || 1800,
     overhead: config.OVERHEAD_MULTIPLIER || 1.2,
   }) : null;
 
   const primarySkill = skills.find(s => s.id === form.primarySkillId);
+  const selectedSecSkills = form.secondarySkills.map(ss => skills.find(s => s.id === ss.skillId)).filter(Boolean);
 
   function togglePrimarySubmod(sub) {
     const arr = form.primarySubmods.includes(sub)
@@ -105,21 +102,13 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
   }
 
   function handleSave() {
-    const fullName = [form.firstName, form.lastName].filter(Boolean).join(' ').trim();
-    if (!fullName)          { setStep(0); return alert('First name is required'); }
+    if (!form.name)           { setStep(0); return alert('Name is required'); }
     if (!form.primarySkillId) { setStep(1); return alert('Primary skill is required'); }
     if (!form.costInput)      { setStep(3); return alert('Cost / rate is required'); }
-
-    // Send firstName + lastName so API can combine them
-    saveMut.mutate({
-      ...form,
-      firstName: form.firstName.trim(),
-      lastName:  form.lastName.trim(),
-      // Also send combined name for backward compat
-      name: fullName,
-      secondarySkillIds: form.secondarySkills.map(ss => ss.skillId),
-    });
+    saveMut.mutate(form);
   }
+
+  const isOffshoreContractor = form.location === 'OFFSHORE' && (form.employmentType === 'CONTRACTOR' || form.employmentType === 'C2C');
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -136,30 +125,21 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
           ))}
         </div>
 
-        {/* ── Step 0: Identity ─────────────────────────────── */}
+        {/* Step 0: Identity */}
         {step === 0 && (
           <div>
             <div className="form-grid-2">
-              <div className="form-group">
-                <label className="form-label">First Name *</label>
-                <input className="form-input" value={form.firstName} onChange={e => f('firstName', e.target.value)} placeholder="Ravi" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Last Name *</label>
-                <input className="form-input" value={form.lastName} onChange={e => f('lastName', e.target.value)} placeholder="Kumar" />
-              </div>
-            </div>
-            <div className="form-grid-2">
+              <div className="form-group"><label className="form-label">Full Name *</label><input className="form-input" value={form.name} onChange={e=>f('name',e.target.value)} placeholder="Ravi Kumar" /></div>
               <div className="form-group"><label className="form-label">Employee / Contractor ID</label><input className="form-input" value={form.empId} onChange={e=>f('empId',e.target.value)} placeholder="EMP-001" /></div>
-              <div className="form-group"><label className="form-label">Contact Email</label><input className="form-input" type="email" value={form.email} onChange={e=>f('email',e.target.value)} /></div>
             </div>
             <div className="form-grid-2">
+              <div className="form-group"><label className="form-label">Contact Email</label><input className="form-input" type="email" value={form.email} onChange={e=>f('email',e.target.value)} /></div>
               <div className="form-group"><label className="form-label">Contact Phone</label><input className="form-input" value={form.phone} onChange={e=>f('phone',e.target.value)} /></div>
             </div>
           </div>
         )}
 
-        {/* ── Step 1: Skills ───────────────────────────────── */}
+        {/* Step 1: Skills */}
         {step === 1 && (
           <div>
             <div className="form-group">
@@ -191,31 +171,38 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
                 {skills.filter(s => s.id !== form.primarySkillId).map(s => (
                   <span key={s.id} onClick={() => toggleSecSkill(s.id)}
-                    className={`chip ${form.secondarySkills.find(ss=>ss.skillId===s.id) ? 'chip-blue' : 'chip-gray'}`}
+                    className={`chip ${form.secondarySkills.find(ss=>ss.skillId===s.id) ? '' : 'chip-gray'}`}
                     style={{ cursor: 'pointer' }}>{s.name}</span>
                 ))}
               </div>
-              {form.secondarySkills.map(ss => {
-                const sk = skills.find(s => s.id === ss.skillId);
-                if (!sk) return null;
-                return (
-                  <div key={ss.skillId} style={{ marginBottom: 10 }}>
-                    <div className="form-label" style={{ marginBottom: 4 }}>{sk.name} — sub-modules</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                      {sk.submods.map(sub => (
-                        <span key={sub} onClick={() => toggleSecSubmod(ss.skillId, sub)}
-                          className={`chip chip-${ss.submods.includes(sub) ? 'purple' : 'gray'}`}
-                          style={{ cursor: 'pointer', fontSize: 10 }}>{sub}</span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+              {form.secondarySkills.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {form.secondarySkills.map(ss => {
+                    const sk = skills.find(s => s.id === ss.skillId);
+                    if (!sk) return null;
+                    return (
+                      <div key={ss.skillId} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--border)' }}>
+                        <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 8, color: 'var(--text2)', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{sk.name} sub-modules</span>
+                          <span onClick={() => toggleSecSkill(sk.id)} style={{ cursor: 'pointer', color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>✕ Remove</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {(sk.submods || []).map(sub => (
+                            <span key={sub} onClick={() => toggleSecSubmod(ss.skillId, sub)}
+                              className={`chip ${ss.submods.includes(sub) ? '' : 'chip-gray'}`}
+                              style={{ cursor: 'pointer' }}>{sub}</span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* ── Step 2: Employment ───────────────────────────── */}
+        {/* Step 2: Employment */}
         {step === 2 && (
           <div>
             <div className="form-grid-2">
@@ -266,7 +253,7 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
           </div>
         )}
 
-        {/* ── Step 3: Cost & Payment ───────────────────────── */}
+        {/* Step 3: Cost & Payment */}
         {step === 3 && (
           <div>
             <div className="info-box">
@@ -285,8 +272,7 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
             <div className="form-group">
               <label className="form-label">
                 {form.location === 'OFFSHORE' && isEmployee ? 'CTC per Annum (INR ₹) *' :
-                 form.location === 'ONSITE'   && isEmployee ? 'Annual Salary (USD $) *' :
-                 form.location === 'ONSITE'                 ? 'Hourly Rate (USD $) *' :
+                 form.location === 'ONSITE' && isEmployee  ? 'Annual Salary (USD $) *' :
                  `Hourly Rate (${form.rateCurrency}) *`}
               </label>
               <input className="form-input" type="number" value={form.costInput} onChange={e=>f('costInput',e.target.value)}
@@ -327,7 +313,7 @@ export default function ResourceModal({ resource, skills, onClose, onSaved }) {
           <button className="btn btn-outline" onClick={onClose}>Cancel</button>
           {step > 0 && <button className="btn btn-outline" onClick={() => setStep(s=>s-1)}>← Previous</button>}
           {step < 3 && <button className="btn btn-primary" onClick={() => setStep(s=>s+1)}>Next →</button>}
-          {step === 3 && <button className="btn btn-primary" onClick={handleSave} disabled={saveMut.isPending}>{saveMut.isPending ? 'Saving…' : 'Save Resource'}</button>}
+          <button className="btn btn-primary" onClick={handleSave} disabled={saveMut.isPending}>{saveMut.isPending ? 'Saving…' : 'Save Resource'}</button>
         </div>
       </div>
     </div>
